@@ -1,0 +1,616 @@
+/* Mobile Performance Optimizer Pro — retained-mode Editor UI theme */
+.mpo-root {
+    flex-grow: 1;
+    font-size: 12px;
+}
+
+.mpo-dark {
+    background-color: #15171c;
+    color: #d9dde7;
+}
+
+.mpo-light {
+    background-color: #e9edf4;
+    color: #242832;
+}
+
+.mpo-topbar {
+    min-height: 74px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 22px;
+    padding-right: 18px;
+    border-bottom-width: 1px;
+}
+.mpo-dark .mpo-topbar { background-color: #1b1e25; border-bottom-color: #2b303a; }
+.mpo-light .mpo-topbar { background-color: #f6f8fc; border-bottom-color: #ccd3df; }
+
+.mpo-brand-row { flex-direction: row; align-items: center; min-width: 360px; flex-grow: 1; }
+.mpo-brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    background-color: #6d5dfc;
+}
+.mpo-brand-mark Label { color: white; -unity-font-style: bold; font-size: 17px; }
+.mpo-brand-title { font-size: 17px; -unity-font-style: bold; color: #f3f5fa; }
+.mpo-light .mpo-brand-title { color: #20232b; }
+.mpo-brand-subtitle { font-size: 10px; margin-top: 2px; color: #8e97a8; }
+
+.mpo-version {
+    margin-left: 10px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-radius: 10px;
+    background-color: #292d39;
+    color: #aab2c2;
+    font-size: 9px;
+}
+.mpo-light .mpo-version { background-color: #e3e7ef; color: #5f6878; }
+
+.mpo-target-controls { flex-direction: row; align-items: flex-end; }
+.mpo-target-field { width: 150px; margin-right: 8px; }
+.mpo-target-field > Label { font-size: 9px; color: #8992a2; -unity-font-style: bold; }
+
+.mpo-shell { flex-grow: 1; flex-direction: row; }
+.mpo-sidebar {
+    width: 188px;
+    min-width: 188px;
+    padding-top: 18px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 14px;
+    border-right-width: 1px;
+}
+.mpo-dark .mpo-sidebar { background-color: #181b21; border-right-color: #292e38; }
+.mpo-light .mpo-sidebar { background-color: #f3f5f9; border-right-color: #d2d8e2; }
+.mpo-nav-caption { color: #737d90; font-size: 9px; -unity-font-style: bold; margin-left: 8px; margin-bottom: 8px; }
+.mpo-nav-button {
+    height: 38px;
+    margin-bottom: 5px;
+    border-width: 0;
+    border-radius: 8px;
+    -unity-text-align: middle-left;
+    padding-left: 12px;
+    background-color: transparent;
+    color: #aeb6c6;
+}
+.mpo-nav-button:hover { background-color: #242936; color: #ffffff; }
+.mpo-light .mpo-nav-button { color: #4f596a; }
+.mpo-light .mpo-nav-button:hover { background-color: #e2e7f0; color: #20252e; }
+.mpo-nav-active { background-color: #2b3150; color: #ffffff; border-left-width: 3px; border-left-color: #7467ff; padding-left: 9px; }
+.mpo-light .mpo-nav-active { background-color: #e1e5ff; color: #2b3150; }
+
+.mpo-sidebar-spacer { flex-grow: 1; }
+.mpo-sidebar-card {
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    border-width: 1px;
+}
+.mpo-dark .mpo-sidebar-card { background-color: #1f232c; border-color: #2d333e; }
+.mpo-light .mpo-sidebar-card { background-color: #ffffff; border-color: #d7dce6; }
+.mpo-sidebar-kicker { font-size: 9px; color: #7d8799; }
+.mpo-sidebar-value { font-size: 13px; -unity-font-style: bold; margin-top: 3px; }
+.mpo-sidebar-foot { font-size: 9px; color: #697385; margin-top: 10px; white-space: normal; }
+
+.mpo-content { flex-grow: 1; min-width: 0; }
+.mpo-page { flex-grow: 1; padding: 20px; }
+.mpo-scroll-page { flex-grow: 1; }
+.mpo-scroll-content { padding: 20px; }
+
+.mpo-page-head { flex-direction: row; align-items: flex-end; margin-bottom: 16px; }
+.mpo-page-head-main { flex-grow: 1; }
+.mpo-page-title { font-size: 22px; -unity-font-style: bold; color: #f4f6fb; }
+.mpo-light .mpo-page-title { color: #20242c; }
+.mpo-page-subtitle { margin-top: 4px; color: #8993a5; white-space: normal; }
+.mpo-page-actions { flex-direction: row; align-items: center; }
+
+.mpo-scan-banner {
+    min-height: 56px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 18px;
+    padding-right: 18px;
+    border-bottom-width: 1px;
+}
+.mpo-dark .mpo-scan-banner { background-color: #1d2230; border-bottom-color: #303747; }
+.mpo-light .mpo-scan-banner { background-color: #edf0ff; border-bottom-color: #ccd2f3; }
+.mpo-scan-copy { width: 270px; margin-right: 16px; }
+.mpo-scan-title { -unity-font-style: bold; color: #cfd5ff; }
+.mpo-light .mpo-scan-title { color: #3f4776; }
+.mpo-scan-status { font-size: 9px; color: #8e98ad; white-space: normal; }
+.mpo-progress { flex-grow: 1; margin-right: 14px; }
+
+.mpo-banner {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 12px;
+    padding-right: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border-width: 1px;
+    white-space: normal;
+}
+.mpo-banner-warning { background-color: #31291b; border-color: #5c4724; color: #e6c77a; }
+.mpo-banner-info { background-color: #1d2934; border-color: #2c475e; color: #99bddc; }
+.mpo-light .mpo-banner-warning { background-color: #fff7dd; border-color: #ecd18a; color: #765b16; }
+.mpo-light .mpo-banner-info { background-color: #eaf4ff; border-color: #b8d6ef; color: #315d80; }
+
+.mpo-card {
+    border-radius: 10px;
+    border-width: 1px;
+    padding: 14px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+}
+.mpo-dark .mpo-card { background-color: #1d2027; border-color: #2b3039; }
+.mpo-light .mpo-card { background-color: #ffffff; border-color: #d6dce6; }
+.mpo-card:hover { border-color: #454d60; }
+.mpo-light .mpo-card:hover { border-color: #b3bdcc; }
+
+.mpo-card-row { flex-direction: row; flex-wrap: wrap; }
+.mpo-score-card { min-width: 260px; flex-grow: 1; flex-basis: 260px; }
+.mpo-score-main { flex-direction: row; align-items: center; }
+.mpo-score-ring {
+    width: 92px;
+    height: 92px;
+    border-radius: 46px;
+    border-width: 7px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+}
+.mpo-score-number { font-size: 26px; -unity-font-style: bold; color: #f3f5fb; }
+.mpo-light .mpo-score-number { color: #22262e; }
+.mpo-score-denom { font-size: 9px; color: #7f899c; }
+.mpo-score-rating { font-size: 16px; -unity-font-style: bold; }
+.mpo-score-caption { color: #858fa1; font-size: 10px; margin-top: 3px; white-space: normal; }
+
+.mpo-stat-card { min-width: 140px; flex-grow: 1; flex-basis: 140px; }
+.mpo-stat-kicker { font-size: 9px; color: #798396; -unity-font-style: bold; }
+.mpo-stat-value { font-size: 24px; -unity-font-style: bold; margin-top: 6px; color: #eef1f7; }
+.mpo-light .mpo-stat-value { color: #23272f; }
+.mpo-stat-copy { font-size: 9px; color: #7d879a; margin-top: 4px; white-space: normal; }
+
+.mpo-section-header { margin-top: 8px; margin-bottom: 10px; }
+.mpo-section-title { font-size: 14px; -unity-font-style: bold; color: #e9ecf4; }
+.mpo-light .mpo-section-title { color: #2c313b; }
+.mpo-section-subtitle { color: #7f899b; margin-top: 2px; white-space: normal; }
+
+.mpo-next-card { border-left-width: 3px; border-left-color: #6d5dfc; }
+.mpo-next-kicker { color: #9188ff; font-size: 9px; -unity-font-style: bold; }
+.mpo-next-title { font-size: 15px; -unity-font-style: bold; margin-top: 4px; }
+.mpo-copy { color: #a4adbc; white-space: normal; margin-top: 6px; }
+.mpo-light .mpo-copy { color: #566071; }
+
+.mpo-category-card { min-width: 205px; flex-grow: 1; flex-basis: 205px; }
+.mpo-category-top { flex-direction: row; align-items: center; }
+.mpo-category-name { -unity-font-style: bold; flex-grow: 1; }
+.mpo-category-score { font-size: 18px; -unity-font-style: bold; }
+.mpo-category-meta { color: #7e889a; font-size: 9px; margin-top: 7px; }
+.mpo-meter { height: 5px; border-radius: 3px; margin-top: 8px; background-color: #2d323d; overflow: hidden; }
+.mpo-light .mpo-meter { background-color: #e2e6ee; }
+.mpo-meter-fill { height: 5px; border-radius: 3px; background-color: #6d5dfc; }
+
+.mpo-toolbar {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px;
+    border-radius: 9px;
+    border-width: 1px;
+    margin-bottom: 10px;
+}
+.mpo-dark .mpo-toolbar { background-color: #1b1f26; border-color: #2b3039; }
+.mpo-light .mpo-toolbar { background-color: #ffffff; border-color: #d6dce6; }
+.mpo-search { flex-grow: 1; min-width: 180px; margin-right: 8px; }
+.mpo-dropdown { width: 155px; margin-right: 8px; }
+.mpo-sort { width: 150px; margin-right: 8px; }
+
+.mpo-filter-strip { flex-direction: row; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.mpo-filter-chip {
+    height: 28px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: #343a46;
+    background-color: #20242c;
+    color: #9ca5b5;
+}
+.mpo-light .mpo-filter-chip { background-color: #f3f5f8; border-color: #d0d6e0; color: #596273; }
+.mpo-filter-active { background-color: #30365a; border-color: #5c62a5; color: #ffffff; }
+.mpo-light .mpo-filter-active { background-color: #e1e4ff; border-color: #a8b0f3; color: #373e6d; }
+
+.mpo-results-meta { flex-direction: row; align-items: center; margin-bottom: 8px; }
+.mpo-results-count { -unity-font-style: bold; }
+.mpo-results-hint { color: #768094; font-size: 9px; margin-left: 8px; }
+
+.mpo-split { flex-grow: 1; flex-direction: row; min-height: 230px; }
+.mpo-list-pane { width: 42%; min-width: 280px; margin-right: 10px; }
+.mpo-detail-pane { flex-grow: 1; min-width: 320px; }
+.mpo-list {
+    flex-grow: 1;
+    border-width: 1px;
+    border-radius: 9px;
+}
+.mpo-dark .mpo-list { background-color: #181b20; border-color: #2a2f38; }
+.mpo-light .mpo-list { background-color: #ffffff; border-color: #d5dbe5; }
+.mpo-list .unity-list-view__item { border-bottom-width: 1px; border-bottom-color: #282d35; }
+.mpo-light .mpo-list .unity-list-view__item { border-bottom-color: #e4e7ed; }
+.mpo-list .unity-collection-view__item--selected { background-color: #2b3150; }
+.mpo-light .mpo-list .unity-collection-view__item--selected { background-color: #e3e6ff; }
+
+.mpo-issue-row { height: 86px; padding-top: 9px; padding-bottom: 9px; padding-left: 10px; padding-right: 10px; flex-direction: row; align-items: center; }
+.mpo-issue-stripe { width: 4px; height: 52px; border-radius: 2px; margin-right: 10px; }
+.mpo-issue-row-main { flex-grow: 1; min-width: 0; }
+.mpo-issue-row-top { flex-direction: row; align-items: center; }
+.mpo-issue-row-title { -unity-font-style: bold; flex-grow: 1; color: #dfe3eb; }
+.mpo-light .mpo-issue-row-title { color: #2a2e36; }
+.mpo-issue-row-meta { color: #737e91; font-size: 9px; margin-top: 4px; }
+.mpo-issue-row-impact { color: #8e98aa; font-size: 9px; margin-top: 4px; }
+
+.mpo-detail-card { flex-grow: 1; margin-right: 0; margin-bottom: 0; padding: 18px; }
+.mpo-detail-scroll { flex-grow: 1; }
+.mpo-detail-head { flex-direction: row; align-items: center; margin-bottom: 10px; }
+.mpo-detail-title { font-size: 18px; -unity-font-style: bold; white-space: normal; margin-bottom: 5px; }
+.mpo-detail-path { font-size: 9px; color: #718096; white-space: normal; }
+.mpo-detail-section { margin-top: 16px; }
+.mpo-detail-label { font-size: 9px; color: #7f899a; -unity-font-style: bold; margin-bottom: 5px; }
+.mpo-detail-copy { white-space: normal; color: #bcc3cf; }
+.mpo-light .mpo-detail-copy { color: #4d5665; }
+.mpo-action-row { flex-direction: row; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+
+.mpo-badge {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-right: 6px;
+    border-radius: 11px;
+    border-width: 1px;
+}
+.mpo-badge Label { font-size: 8px; -unity-font-style: bold; }
+.mpo-critical { background-color: #3c2027; border-color: #7d3543; color: #ff9baa; }
+.mpo-warning { background-color: #382e1c; border-color: #6f5628; color: #e7c36f; }
+.mpo-suggestion { background-color: #1d2f38; border-color: #2e5b6c; color: #82c9de; }
+.mpo-impact-high { background-color: #3a2327; border-color: #70383f; color: #f0969f; }
+.mpo-impact-medium { background-color: #352e20; border-color: #67572f; color: #dcc178; }
+.mpo-impact-low { background-color: #1f302a; border-color: #345e4d; color: #83c3a4; }
+.mpo-impact-none { background-color: #252a31; border-color: #373e48; color: #858f9f; }
+.mpo-light .mpo-critical { background-color: #fff0f2; border-color: #eab1ba; color: #8a3542; }
+.mpo-light .mpo-warning { background-color: #fff7e6; border-color: #e5cb91; color: #7e611e; }
+.mpo-light .mpo-suggestion { background-color: #eaf7fb; border-color: #abd4df; color: #2b6676; }
+
+.mpo-button {
+    height: 31px;
+    min-width: 86px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-right: 7px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: #39404c;
+    background-color: #272c35;
+    color: #cfd4de;
+}
+.mpo-button:hover { background-color: #313844; color: white; border-color: #4a5262; }
+.mpo-light .mpo-button { background-color: #f4f6f9; color: #414958; border-color: #cbd2dc; }
+.mpo-light .mpo-button:hover { background-color: #e9edf3; color: #252a33; }
+.mpo-primary { background-color: #6758ef; border-color: #796bf8; color: white; -unity-font-style: bold; }
+.mpo-primary:hover { background-color: #7567fa; border-color: #8a7eff; }
+.mpo-danger { background-color: #3a2429; border-color: #6c3943; color: #f1a2ad; }
+.mpo-ghost { background-color: transparent; border-color: transparent; color: #909aac; }
+.mpo-ghost:hover { background-color: #242a34; border-color: #303744; }
+
+.mpo-fix-stat { min-width: 185px; flex-grow: 1; flex-basis: 185px; }
+.mpo-fix-list-row { height: 72px; padding-top: 8px; padding-bottom: 8px; padding-left: 10px; padding-right: 10px; }
+.mpo-fix-title { -unity-font-style: bold; }
+.mpo-fix-meta { color: #7f899a; font-size: 9px; margin-top: 3px; }
+
+.mpo-report-actions { flex-direction: row; flex-wrap: wrap; }
+.mpo-report-card { min-width: 230px; flex-grow: 1; flex-basis: 230px; }
+.mpo-history-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 42px;
+    border-bottom-width: 1px;
+    border-bottom-color: #2a2f37;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+.mpo-light .mpo-history-row { border-bottom-color: #e1e5eb; }
+.mpo-history-date { width: 135px; color: #7f899b; }
+.mpo-history-target { width: 300px; }
+.mpo-history-score { width: 70px; -unity-font-style: bold; }
+.mpo-history-issues { color: #7f899b; flex-grow: 1; }
+
+.mpo-empty {
+    align-items: center;
+    justify-content: center;
+    flex-grow: 1;
+    min-height: 320px;
+    padding: 40px;
+}
+.mpo-empty-title { font-size: 20px; -unity-font-style: bold; color: #e9edf5; }
+.mpo-light .mpo-empty-title { color: #282d36; }
+.mpo-empty-copy { max-width: 560px; white-space: normal; -unity-text-align: middle-center; color: #818c9e; margin-top: 8px; }
+
+.mpo-divider { height: 1px; margin-top: 12px; margin-bottom: 12px; background-color: #2b3038; }
+.mpo-light .mpo-divider { background-color: #dfe3ea; }
+
+.mpo-small { font-size: 9px; color: #7d8798; }
+.mpo-muted { color: #7d8798; }
+.mpo-bold { -unity-font-style: bold; }
+.mpo-row { flex-direction: row; align-items: center; }
+.mpo-flex { flex-grow: 1; }
+.mpo-wrap { white-space: normal; }
+.mpo-no-right-margin { margin-right: 0; }
+
+/* Milestone 4.4 — production UX / prioritization */
+.mpo-target-field { width: 172px; }
+.mpo-target-field .unity-base-field__input { min-height: 28px; }
+
+.mpo-view-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+    min-height: 30px;
+}
+.mpo-view-row > .mpo-stat-kicker { margin-right: 10px; }
+
+.mpo-banner-action {
+    flex-direction: row;
+    align-items: center;
+}
+.mpo-banner-copy {
+    flex-grow: 1;
+    white-space: normal;
+}
+.mpo-banner-action .mpo-button { margin-left: 12px; margin-right: 0; }
+
+.mpo-priority-list { margin-bottom: 6px; }
+.mpo-priority-row {
+    margin-right: 0;
+    min-height: 82px;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+}
+.mpo-priority-rank {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 17px;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    background-color: #2e3150;
+    border-width: 1px;
+    border-color: #4d5381;
+}
+.mpo-light .mpo-priority-rank { background-color: #e4e6ff; border-color: #b6baf1; }
+.mpo-priority-rank-text { -unity-font-style: bold; color: #b9b4ff; font-size: 14px; }
+.mpo-light .mpo-priority-rank-text { color: #4e51a0; }
+.mpo-priority-copy { flex-grow: 1; min-width: 0; margin-right: 12px; }
+.mpo-priority-title { font-size: 14px; -unity-font-style: bold; margin-top: 5px; white-space: normal; }
+.mpo-priority-meta { color: #8791a3; font-size: 10px; margin-top: 5px; white-space: normal; }
+
+.mpo-score-foldout {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top-width: 1px;
+    border-top-color: #2b3038;
+}
+.mpo-light .mpo-score-foldout { border-top-color: #e0e4eb; }
+.mpo-score-foldout > Toggle { color: #929caf; }
+.mpo-score-explain { color: #7f899b; font-size: 9px; white-space: normal; margin-top: 5px; }
+
+.mpo-detail-table {
+    border-width: 1px;
+    border-color: #2d323b;
+    border-radius: 7px;
+    overflow: hidden;
+}
+.mpo-light .mpo-detail-table { border-color: #d8dde6; }
+.mpo-detail-kv-row {
+    min-height: 28px;
+    flex-direction: row;
+    align-items: center;
+    border-bottom-width: 1px;
+    border-bottom-color: #282d35;
+    padding-left: 9px;
+    padding-right: 9px;
+}
+.mpo-light .mpo-detail-kv-row { border-bottom-color: #e5e8ee; }
+.mpo-detail-key { width: 185px; color: #818b9e; font-size: 10px; -unity-font-style: bold; }
+.mpo-detail-value { flex-grow: 1; color: #c6ccd7; white-space: normal; }
+.mpo-light .mpo-detail-value { color: #434b59; }
+
+.mpo-recommendation-row { flex-direction: row; margin-bottom: 4px; }
+.mpo-recommendation-bullet { width: 16px; color: #8176ff; -unity-font-style: bold; }
+.mpo-recommendation-row > .mpo-detail-copy { flex-grow: 1; }
+
+.mpo-technical-foldout {
+    margin-top: 16px;
+    padding: 10px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: #2b3038;
+    background-color: #191c22;
+}
+.mpo-light .mpo-technical-foldout { border-color: #dce1e8; background-color: #f7f8fb; }
+.mpo-group-path { font-size: 10px; color: #8994a8; margin-bottom: 4px; white-space: normal; }
+
+.mpo-diagnostics-root { flex-grow: 1; padding: 16px; }
+.mpo-diagnostics-header { flex-direction: row; align-items: center; margin-bottom: 12px; }
+.mpo-diagnostics-list { flex-grow: 1; min-height: 260px; margin-top: 8px; }
+.mpo-diagnostic-row { padding: 10px; min-height: 54px; }
+.mpo-diagnostic-type { font-size: 9px; -unity-font-style: bold; color: #e5b95f; margin-bottom: 4px; }
+.mpo-diagnostic-message { white-space: normal; color: #aeb6c5; }
+.mpo-light .mpo-diagnostic-message { color: #4e5766; }
+
+/* ToolbarSearchField gets a larger commercial-tool hit target. */
+.mpo-search { min-height: 28px; }
+.mpo-ignore-manager-row {
+    height: 58px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+.mpo-ignore-manager-value {
+    flex-grow: 1;
+    margin-left: 8px;
+    margin-right: 10px;
+    color: #aeb6c5;
+}
+.mpo-light .mpo-ignore-manager-value { color: #4e5766; }
+
+/* Milestone 4.4.1: explicit group drill-down state */
+.mpo-group-review-banner {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    border-left-width: 3px;
+    border-left-color: #7567ff;
+}
+.mpo-group-review-copy { flex-grow: 1; margin-right: 12px; }
+.mpo-group-review-title { font-size: 14px; -unity-font-style: bold; margin-top: 2px; margin-bottom: 2px; }
+.mpo-group-review-meta { color: #8f98aa; font-size: 10px; white-space: normal; }
+.mpo-light .mpo-group-review-meta { color: #657084; }
+
+/* Milestone 4.5 — Midnight Amber simplified production theme */
+.mpo-midnight-amber {
+    background-color: #120f0a;
+    color: #f1eadf;
+}
+.mpo-midnight-amber .mpo-topbar { background-color: #18130d; border-bottom-color: #3a2b16; }
+.mpo-midnight-amber .mpo-sidebar { background-color: #15110c; border-right-color: #322615; }
+.mpo-midnight-amber .mpo-content { background-color: #120f0a; }
+.mpo-midnight-amber .mpo-brand-mark { background-color: #f59e0b; color: #171006; }
+.mpo-midnight-amber .mpo-version { background-color: #2b2114; border-color: #4a3518; color: #c9b895; }
+.mpo-midnight-amber .mpo-nav-button { color: #aaa08e; }
+.mpo-midnight-amber .mpo-nav-button:hover { background-color: #211a11; color: #f8efe2; }
+.mpo-midnight-amber .mpo-nav-active { background-color: #4b3108; border-left-color: #f59e0b; color: #fff4dc; }
+.mpo-midnight-amber .mpo-sidebar-card,
+.mpo-midnight-amber .mpo-card,
+.mpo-midnight-amber .mpo-toolbar { background-color: #1c1710; border-color: #332817; }
+.mpo-midnight-amber .mpo-card:hover { border-color: #5e451d; }
+.mpo-midnight-amber .mpo-primary { background-color: #f59e0b; border-color: #ffb329; color: #1a1104; }
+.mpo-midnight-amber .mpo-primary:hover { background-color: #ffad20; border-color: #ffc14b; color: #100b04; }
+.mpo-midnight-amber .mpo-safe-action { background-color: #167a55; border-color: #2eaa7a; color: #f3fff9; -unity-font-style: bold; }
+.mpo-midnight-amber .mpo-safe-action:hover { background-color: #1b9165; border-color: #42bd8e; }
+.mpo-midnight-amber .mpo-button { background-color: #292118; border-color: #42331f; color: #e1d6c5; }
+.mpo-midnight-amber .mpo-button:hover { background-color: #362a1b; border-color: #5d4728; color: #ffffff; }
+.mpo-midnight-amber .mpo-ghost { background-color: transparent; border-color: transparent; color: #ad9e87; }
+.mpo-midnight-amber .mpo-ghost:hover { background-color: #241c12; border-color: #382a19; color: #f4ead9; }
+.mpo-midnight-amber .mpo-meter-fill { background-color: #f59e0b; }
+.mpo-midnight-amber .mpo-score-ring { border-color: #f59e0b; }
+.mpo-midnight-amber .mpo-filter-active { background-color: #4b3108; border-color: #9b650b; color: #ffe8b5; }
+.mpo-midnight-amber .mpo-list { background-color: #15110c; border-color: #322617; }
+.mpo-midnight-amber .mpo-list .unity-list-view__item { border-bottom-color: #2b2216; }
+.mpo-midnight-amber .mpo-list .unity-collection-view__item--selected { background-color: #3b2b13; }
+.mpo-midnight-amber .mpo-next-card { border-left-color: #f59e0b; }
+.mpo-midnight-amber .mpo-next-kicker { color: #ffc657; }
+.mpo-midnight-amber .mpo-banner-info { background-color: #1d281f; border-color: #2c5841; color: #9dd0b6; }
+.mpo-midnight-amber .mpo-banner-warning { background-color: #2c2111; border-color: #664719; color: #e8c377; }
+.mpo-midnight-amber .mpo-top-target-badge {
+    height: 26px;
+    padding-left: 10px;
+    padding-right: 10px;
+    margin-left: 6px;
+    border-radius: 7px;
+    background-color: #2a2115;
+    border-width: 1px;
+    border-color: #47351d;
+    color: #e7d7bd;
+    -unity-text-align: middle-center;
+}
+.mpo-scan-setup-card { padding: 18px; margin-right: 0; }
+.mpo-step-title { font-size: 12px; -unity-font-style: bold; color: #f2e7d5; margin-top: 12px; margin-bottom: 8px; }
+.mpo-choice-row { flex-direction: row; flex-wrap: wrap; margin-bottom: 4px; }
+.mpo-segment {
+    min-width: 130px;
+    height: 38px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: #3b3022;
+    background-color: #241d15;
+    color: #bdb09d;
+    -unity-font-style: bold;
+}
+.mpo-segment:hover { background-color: #302518; border-color: #60451d; color: #f5ead9; }
+.mpo-choice-active { background-color: #5b3a07; border-color: #f59e0b; color: #ffe7ad; }
+.mpo-scope-grid { flex-direction: row; flex-wrap: wrap; }
+.mpo-scope-choice {
+    width: 182px;
+    min-height: 76px;
+    margin-right: 9px;
+    margin-bottom: 9px;
+    padding: 12px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: #3a3023;
+    background-color: #211b14;
+    align-items: flex-start;
+}
+.mpo-scope-choice:hover { background-color: #2b2116; border-color: #664a20; }
+.mpo-scope-choice.mpo-choice-active { background-color: #3d2b0e; border-color: #f59e0b; }
+.mpo-scope-choice-title { -unity-font-style: bold; color: #f1e7d7; margin-bottom: 5px; }
+.mpo-scope-choice-copy { font-size: 9px; color: #9b8f7d; white-space: normal; }
+.mpo-folder-row { flex-direction: row; align-items: center; margin-top: 6px; margin-bottom: 8px; }
+.mpo-folder-label { width: 70px; color: #a99b88; -unity-font-style: bold; }
+.mpo-folder-field { flex-grow: 1; }
+.mpo-scope-hint { margin-top: 7px; padding: 10px; border-radius: 7px; background-color: #171f1b; border-width: 1px; border-color: #294b39; color: #9fc6ae; white-space: normal; }
+.mpo-scan-action-row { flex-direction: row; align-items: center; margin-top: 16px; }
+.mpo-scan-cta { min-width: 260px; height: 42px; font-size: 14px; }
+.mpo-scan-action-hint { color: #8f8270; margin-left: 12px; white-space: normal; }
+.mpo-friendly-card { margin-top: 12px; margin-right: 0; }
+.mpo-home-actions { flex-direction: row; flex-wrap: wrap; margin-bottom: 8px; }
+.mpo-category-tabs { flex-direction: row; flex-wrap: wrap; margin-bottom: 10px; }
+.mpo-category-tab {
+    height: 28px;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: #342a1d;
+    background-color: #1d1812;
+    color: #9f9483;
+}
+.mpo-category-tab:hover { background-color: #2b2116; color: #f0e3cf; border-color: #57411f; }
+.mpo-category-tab-active { background-color: #5a3907; color: #ffe7ad; border-color: #f59e0b; }
+.mpo-filter-foldout { margin-bottom: 8px; color: #a99b87; }
+.mpo-simple-section { margin-top: 15px; padding: 12px; border-radius: 8px; background-color: #18140f; border-width: 1px; border-color: #302719; }
+.mpo-simple-section-title { font-size: 12px; -unity-font-style: bold; color: #f1e6d4; margin-bottom: 6px; }
+.mpo-simple-section-copy { color: #c1b6a5; white-space: normal; }
+.mpo-suggested-fix { margin-top: 14px; padding: 12px; border-radius: 8px; border-width: 1px; border-color: #4e6e54; background-color: #17231b; }
+.mpo-suggested-fix-title { -unity-font-style: bold; color: #9dd4ae; margin-bottom: 5px; }
+.mpo-suggested-fix-copy { color: #b6cbbb; white-space: normal; }
+.mpo-group-summary-strip { flex-direction: row; align-items: baseline; flex-wrap: wrap; margin-top: 14px; padding: 10px; background-color: #17130f; border-radius: 7px; }
+.mpo-group-summary-value { font-size: 15px; -unity-font-style: bold; color: #f7c55f; margin-right: 5px; }
+.mpo-group-summary-label { color: #877b6b; margin-right: 15px; }
+.mpo-fix-safe-card { border-top-width: 2px; border-top-color: #2e9b6d; }
+.mpo-fix-review-card { border-top-width: 2px; border-top-color: #d69016; }
+.mpo-fix-manual-card { border-top-width: 2px; border-top-color: #4b76a5; }
+.mpo-midnight-amber .mpo-brand-mark Label { color: #171006; }
+.mpo-midnight-amber .mpo-scan-banner { background-color: #21190e; border-bottom-color: #4b3518; }
+.mpo-midnight-amber .mpo-scan-title { color: #ffd47a; }
+.mpo-midnight-amber .mpo-priority-rank { background-color: #3a2910; border-color: #7a5317; }
+.mpo-midnight-amber .mpo-priority-rank-text { color: #ffc45a; }
+.mpo-midnight-amber .mpo-group-review-banner { border-left-color: #f59e0b; }
