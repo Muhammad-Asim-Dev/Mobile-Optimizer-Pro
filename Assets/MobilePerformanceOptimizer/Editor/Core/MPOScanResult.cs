@@ -25,13 +25,13 @@ namespace MobilePerformanceOptimizer
             Math.Max(0, RecoverableErrorCount - RecoverableWarnings.Count);
 
         public IEnumerable<MPOIssue> AllIssues => _categories.Values.SelectMany(x => x.Issues);
-        public IEnumerable<MPOIssue> ActiveIssues => AllIssues.Where(x => !MPOIgnoreStore.IsIgnored(x));
+        public IEnumerable<MPOIssue> ActiveIssues => MPOConstants.EnableIgnoreUi ? AllIssues.Where(x => !MPOIgnoreStore.IsIgnored(x)) : AllIssues;
         public int TotalChecks => _categories.Values.Sum(x => x.TotalChecks);
         public int PassedChecks => _categories.Values.Sum(x => x.PassedChecks);
         public int CriticalCount => ActiveIssues.Count(x => x.Severity == MPOSeverity.Critical);
         public int WarningCount => ActiveIssues.Count(x => x.Severity == MPOSeverity.Warning);
         public int SuggestionCount => ActiveIssues.Count(x => x.Severity == MPOSeverity.Suggestion);
-        public int IgnoredCount => AllIssues.Count(MPOIgnoreStore.IsIgnored);
+        public int IgnoredCount => MPOConstants.EnableIgnoreUi ? AllIssues.Count(MPOIgnoreStore.IsIgnored) : 0;
         public int FixableCount => ActiveIssues.Count(x => x.CanFix);
         public int SafeFixCount => ActiveIssues.Count(x => x.CanFix && x.FixSafety == MPOFixSafety.Safe);
 

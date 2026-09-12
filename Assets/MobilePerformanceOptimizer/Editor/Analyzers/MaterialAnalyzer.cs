@@ -161,7 +161,8 @@ namespace MobilePerformanceOptimizer
                     try { isVariant = material.isVariant; } catch { }
 
                     bool instancingCandidate = !shaderMissing && !shaderCompileError && !transparent && !isVariant &&
-                                               !material.enableInstancing && shader.keywordSpace.FindKeyword("INSTANCING_ON").isValid && IsLikelyInstancingCandidate(shader, usageCount);
+                                               !material.enableInstancing && MPOMaterialOptimizationUtility.SupportsGpuInstancing(material) &&
+                                               IsLikelyInstancingCandidate(shader, usageCount);
                     if (instancingCandidate)
                     {
                         instancingCandidates++;

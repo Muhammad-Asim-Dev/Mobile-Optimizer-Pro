@@ -58,7 +58,7 @@ namespace MobilePerformanceOptimizer
         private bool _showOnlyFixable;
         private bool _showOnlyHighImpact;
         private IssueSortMode _sortMode = IssueSortMode.Severity;
-        private FindingsViewMode _findingsViewMode = FindingsViewMode.Groups;
+        private FindingsViewMode _findingsViewMode = FindingsViewMode.Assets;
         private int _categoryFilterIndex;
         private string _groupFilterKey = string.Empty;
 
@@ -100,6 +100,7 @@ namespace MobilePerformanceOptimizer
         private readonly Dictionary<MPODeviceTier, Button> _tierTabs = new Dictionary<MPODeviceTier, Button>();
         private readonly Dictionary<MPOScanScopeMode, Button> _scopeTabs = new Dictionary<MPOScanScopeMode, Button>();
         private readonly Dictionary<int, Button> _categoryTabs = new Dictionary<int, Button>();
+        private readonly Dictionary<MPOCategory, MPOBulkFixPreset> _categoryBulkPresets = new Dictionary<MPOCategory, MPOBulkFixPreset>();
         private Label _sidebarTarget;
         private Label _sidebarScore;
         private readonly Dictionary<Page, Button> _navButtons = new Dictionary<Page, Button>();
@@ -129,7 +130,7 @@ namespace MobilePerformanceOptimizer
         {
             var window = GetWindow<MobilePerformanceOptimizerWindow>();
             window.titleContent = new GUIContent("Mobile Optimizer");
-            window.minSize = new Vector2(980f, 640f);
+            window.minSize = new Vector2(860f, 620f);
             window.Show();
         }
 
@@ -164,6 +165,8 @@ namespace MobilePerformanceOptimizer
             VisualElement root = rootVisualElement;
             root.Clear();
             MPOUI.ApplyTheme(root);
+            root.RegisterCallback<GeometryChangedEvent>(evt => UpdateResponsiveLayout(root, evt.newRect.width));
+            UpdateResponsiveLayout(root, position.width);
 
             root.Add(BuildTopBar());
             root.Add(BuildScanBanner());
@@ -176,6 +179,18 @@ namespace MobilePerformanceOptimizer
             _contentHost.AddToClassList("mpo-content");
             shell.Add(_contentHost);
             root.Add(shell);
+        }
+
+        private static void UpdateResponsiveLayout(VisualElement root, float width)
+        {
+            if (root == null)
+                return;
+
+            if (width < 1120f) root.AddToClassList("mpo-compact");
+            else root.RemoveFromClassList("mpo-compact");
+
+            if (width < 960f) root.AddToClassList("mpo-narrow");
+            else root.RemoveFromClassList("mpo-narrow");
         }
 
         private VisualElement BuildTopBar()
@@ -194,10 +209,8 @@ namespace MobilePerformanceOptimizer
             var brandCopy = new VisualElement();
             var titleRow = new VisualElement();
             titleRow.AddToClassList("mpo-row");
-            titleRow.Add(MPOUI.Text("Mobile Performance Optimizer Pro", "mpo-brand-title"));
-            titleRow.Add(MPOUI.Text(MPOConstants.Version, "mpo-version"));
+            titleRow.Add(MPOUI.Text("Mobile Performance Optimizer", "mpo-brand-title"));
             brandCopy.Add(titleRow);
-            brandCopy.Add(MPOUI.Text("Optimize. Lighter builds. Smoother games.", "mpo-brand-subtitle"));
             brandRow.Add(brandCopy);
             bar.Add(brandRow);
 
@@ -250,7 +263,8 @@ namespace MobilePerformanceOptimizer
             AddNavButton(sidebar, Page.Overview, "Scan");
             AddNavButton(sidebar, Page.Issues, "Problems");
             AddNavButton(sidebar, Page.Fixes, "Fixes");
-            AddNavButton(sidebar, Page.Reports, "Reports");
+            if (MPOConstants.EnableReports)
+                AddNavButton(sidebar, Page.Reports, "Reports");
 
             var spacer = new VisualElement();
             spacer.AddToClassList("mpo-sidebar-spacer");
@@ -264,7 +278,6 @@ namespace MobilePerformanceOptimizer
             targetCard.Add(_sidebarTarget);
             targetCard.Add(_sidebarScore);
             sidebar.Add(targetCard);
-            sidebar.Add(MPOUI.Text("Use this tool to find and prioritize problems. Validate final performance with Unity Profiler and real devices.", "mpo-sidebar-foot"));
 
             RefreshSidebar();
             return sidebar;
@@ -307,7 +320,9 @@ namespace MobilePerformanceOptimizer
             else
             {
                 EnsureActiveIssueCache();
-                _sidebarScore.text = "Last score  " + _cachedOverallScore + "/100  •  " + _cachedCriticalCount + " critical\n" + (_scanScope != null ? _scanScope.DisplayName : "Full Project");
+                _sidebarScore.text = _activeIssueCache.Count.ToString("N0") + " problem(s)  •  " +
+                                     _cachedFixableCount.ToString("N0") + " fixable\n" +
+                                     (_scanScope != null ? _scanScope.DisplayName : "Full Project");
             }
             UpdateNavState();
         }
@@ -329,7 +344,7 @@ namespace MobilePerformanceOptimizer
                     _contentHost.Add(BuildFixesPage());
                     break;
                 case Page.Reports:
-                    _contentHost.Add(BuildReportsPage());
+                    _contentHost.Add(MPOConstants.EnableReports ? BuildReportsPage() : BuildOverviewPage());
                     break;
                 default:
                     _contentHost.Add(BuildOverviewPage());
@@ -342,11 +357,11 @@ namespace MobilePerformanceOptimizer
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.AddToClassList("mpo-scroll-page");
             scroll.contentContainer.AddToClassList("mpo-scroll-content");
-            scroll.Add(BuildPageHeader("Scan Your Project", "Choose a target and scan only what you need. Start broad, then use focused scans while fixing specific content."));
+            scroll.Add(BuildPageHeader("Scan & Optimize", "Choose a target and scan only what you need."));
             AddStatusBanners(scroll);
 
             var setup = MPOUI.Card("mpo-scan-setup-card");
-            setup.Add(MPOUI.Text("1  Choose Platform", "mpo-step-title"));
+            setup.Add(MPOUI.Text("1  Platform", "mpo-step-title"));
             var platformRow = new VisualElement();
             platformRow.AddToClassList("mpo-choice-row");
             _platformTabs.Clear();
@@ -354,7 +369,7 @@ namespace MobilePerformanceOptimizer
             platformRow.Add(BuildPlatformChoice(MPOTargetPlatform.iOS, "iOS"));
             setup.Add(platformRow);
 
-            setup.Add(MPOUI.Text("2  Select Device Tier", "mpo-step-title"));
+            setup.Add(MPOUI.Text("2  Target Device", "mpo-step-title"));
             var tierRow = new VisualElement();
             tierRow.AddToClassList("mpo-choice-row");
             _tierTabs.Clear();
@@ -363,15 +378,15 @@ namespace MobilePerformanceOptimizer
             tierRow.Add(BuildTierChoice(MPODeviceTier.HighEnd, "High End"));
             setup.Add(tierRow);
 
-            setup.Add(MPOUI.Text("3  Choose What To Scan", "mpo-step-title"));
+            setup.Add(MPOUI.Text("3  What do you want to scan?", "mpo-step-title"));
             var scopeRow = new VisualElement();
             scopeRow.AddToClassList("mpo-scope-grid");
             _scopeTabs.Clear();
-            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.FullProject, "Full Project", "Scan everything"));
+            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.FullProject, "Full Project", "All project assets"));
             scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.BuildScenes, "Build Scenes", "Enabled build content"));
-            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.CurrentScene, "Current Scene", "Active scene + dependencies"));
-            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.SelectedFolder, "Selected Folder", "One folder + subfolders"));
-            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.SelectedAssets, "Selected Assets", "Current Project selection"));
+            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.CurrentScene, "Current Scene", "Scene dependencies"));
+            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.SelectedFolder, "Selected Folder", "One folder"));
+            scopeRow.Add(BuildScopeChoice(MPOScanScopeMode.SelectedAssets, "Selected Assets", "Project selection"));
             setup.Add(scopeRow);
 
             if (_scanScopeMode == MPOScanScopeMode.SelectedFolder)
@@ -414,32 +429,30 @@ namespace MobilePerformanceOptimizer
 
             var actionRow = new VisualElement();
             actionRow.AddToClassList("mpo-scan-action-row");
-            _scanButton = MPOUI.ActionButton(_scanResult == null ? "Start Scan" : "Start New Scan", RunScan, "mpo-button");
+            _scanButton = MPOUI.ActionButton(_scanResult == null ? "Start Scan" : "Scan Again", RunScan, "mpo-button");
             _scanButton.AddToClassList("mpo-primary");
             _scanButton.AddToClassList("mpo-scan-cta");
             actionRow.Add(_scanButton);
-            actionRow.Add(MPOUI.Text("The scan stays responsive and can be cancelled at any time.", "mpo-scan-action-hint"));
             setup.Add(actionRow);
             scroll.Add(setup);
 
             if (_scanResult == null)
             {
                 var intro = MPOUI.Card("mpo-friendly-card");
-                intro.Add(MPOUI.Text("Start simple", "mpo-next-title"));
-                intro.Add(MPOUI.Text("For a first audit use Full Project. When working on one scene, folder or asset set, use a focused scope to avoid thousands of unrelated findings.", "mpo-copy"));
+                intro.Add(MPOUI.Text("What it can fix", "mpo-next-title"));
+                intro.Add(MPOUI.Text("Textures, materials, models, audio, URP, quality and build settings — with preview, custom values and verified Apply.", "mpo-copy"));
                 scroll.Add(intro);
                 return scroll;
             }
 
             EnsureActiveIssueCache();
-            scroll.Add(MPOUI.SectionHeader("Last Scan Results", (_scanScope != null ? _scanScope.DisplayName : "Full Project") + "  •  " + _scanPlatform + " / " + FriendlyTier(_scanTier)));
+            scroll.Add(MPOUI.SectionHeader("Last Scan", (_scanScope != null ? _scanScope.DisplayName : "Full Project") + "  •  " + _scanPlatform + " / " + FriendlyTier(_scanTier)));
 
             var topRow = new VisualElement();
             topRow.AddToClassList("mpo-card-row");
-            topRow.Add(BuildScoreCard());
-            topRow.Add(BuildStatCard("CRITICAL", _cachedCriticalCount, "Fix these first"));
-            topRow.Add(BuildStatCard("WARNINGS", _cachedWarningCount, "Worth reviewing"));
-            topRow.Add(BuildStatCard("SAFE FIXES", _cachedSafeFixCount, "Can be fixed automatically"));
+            topRow.Add(BuildStatCard("PROBLEMS", _activeIssueCache.Count, "Items worth reviewing"));
+            topRow.Add(BuildStatCard("FIXABLE", _cachedFixableCount, "Can be changed by the tool"));
+            topRow.Add(BuildStatCard("MANUAL", _cachedManualCount, "Guidance only"));
             scroll.Add(topRow);
 
             var quick = new VisualElement();
@@ -447,21 +460,13 @@ namespace MobilePerformanceOptimizer
             var problems = MPOUI.ActionButton("Review Problems", () => SetPage(Page.Issues));
             problems.AddToClassList("mpo-primary");
             quick.Add(problems);
-            Action quickFixAction = _cachedSafeFixCount > 0
-                ? (Action)FixAllSafeIssues
-                : () => SetPage(Page.Fixes);
-            var fixes = MPOUI.ActionButton(_cachedSafeFixCount > 0 ? "Fix All Safe Issues" : "Open Fixes", quickFixAction);
-            if (_cachedSafeFixCount > 0) fixes.AddToClassList("mpo-safe-action");
-            quick.Add(fixes);
-            quick.Add(MPOUI.ActionButton("Export Report", () => SetPage(Page.Reports)));
+            quick.Add(MPOUI.ActionButton("Fix by Category", () => SetPage(Page.Fixes)));
             scroll.Add(quick);
 
             VisualElement diagnostics = BuildDiagnosticsCard();
             if (diagnostics != null)
                 scroll.Add(diagnostics);
 
-            scroll.Add(MPOUI.SectionHeader("Top Problems", "Focus on the biggest repeated problems first. Open a group only when you need to inspect the affected assets."));
-            scroll.Add(BuildTopPriorityGroups());
             return scroll;
         }
 
@@ -596,7 +601,7 @@ namespace MobilePerformanceOptimizer
                 return;
 
             if (_needsRescan)
-                parent.Add(BuildBanner("Target/profile or project state changed. Re-scan before trusting exports or the score.", true));
+                parent.Add(BuildBanner("Target/profile or project state changed. Re-scan before applying fixes.", true));
 
             if (_scanResult.WasCancelled)
                 parent.Add(BuildBanner("The previous scan was cancelled. Results are partial.", true));
@@ -659,7 +664,7 @@ namespace MobilePerformanceOptimizer
 
             int hidden = Math.Max(0, _scanResult.RecoverableErrorCount - Math.Min(6, _scanResult.RecoverableWarnings.Count));
             if (hidden > 0)
-                card.Add(MPOUI.Text("… plus " + hidden + " additional skipped item(s). Full diagnostic totals are preserved in exported reports.", "mpo-stat-copy"));
+                card.Add(MPOUI.Text("… plus " + hidden + " additional skipped item(s). Use View Full Diagnostics to inspect the remaining skipped items.", "mpo-stat-copy"));
 
             var actions = new VisualElement();
             actions.AddToClassList("mpo-action-row");
@@ -935,7 +940,7 @@ namespace MobilePerformanceOptimizer
         {
             var page = new VisualElement();
             page.AddToClassList("mpo-page");
-            page.Add(BuildPageHeader("Problems", "Start with grouped problems. Open individual assets only when you need to review or fix a specific item."));
+            page.Add(BuildPageHeader("Problems", "Choose a category, inspect the affected assets, and fix only the settings you actually want to change."));
             AddStatusBanners(page);
 
             if (_scanResult == null)
@@ -945,19 +950,16 @@ namespace MobilePerformanceOptimizer
             }
 
             EnsureActiveIssueCache();
+            page.Add(BuildIssueCategoryTabs());
             VisualElement quickFixBar = BuildProblemsQuickFixBar();
             if (quickFixBar != null)
                 page.Add(quickFixBar);
-            page.Add(BuildIssueToolbar());
-            VisualElement groupReviewBanner = BuildGroupReviewBanner();
-            if (groupReviewBanner != null)
-                page.Add(groupReviewBanner);
-
+            page.Add(BuildIssueSearchToolbar());
             var meta = new VisualElement();
             meta.AddToClassList("mpo-results-meta");
             _issueCountLabel = MPOUI.Text(string.Empty, "mpo-results-count");
             meta.Add(_issueCountLabel);
-            meta.Add(MPOUI.Text("Virtualized rows keep large projects smooth.", "mpo-results-hint"));
+            meta.Add(MPOUI.Text("Select an item to see the reason and the exact fix.", "mpo-results-hint"));
             page.Add(meta);
 
             var split = new VisualElement();
@@ -995,85 +997,77 @@ namespace MobilePerformanceOptimizer
             var card = MPOUI.Card("mpo-quick-fix-bar");
             var copy = new VisualElement();
             copy.AddToClassList("mpo-flex");
-            copy.Add(MPOUI.Text("QUICK FIX", "mpo-stat-kicker"));
-            copy.Add(MPOUI.Text(_cachedFixableCount.ToString("N0") + " automatic fix action(s) available", "mpo-next-title"));
-            copy.Add(MPOUI.Text("Includes mobile texture-size recommendations, GPU Instancing candidates and other reversible importer/project fixes. Manual issues are never changed.", "mpo-stat-copy"));
-            card.Add(copy);
-
-            var actions = new VisualElement();
-            actions.AddToClassList("mpo-action-row");
-            var fixAll = MPOUI.ActionButton("Fix All Recommended...", () => OpenAutomaticFixes(_activeIssueCache));
-            fixAll.AddToClassList("mpo-primary");
-            actions.Add(fixAll);
 
             if (_categoryFilterIndex > 0)
             {
                 MPOCategory category = (MPOCategory)(_categoryFilterIndex - 1);
-                List<MPOIssue> categoryFixes = _activeIssueCache.Where(issue => issue != null && issue.Category == category && issue.CanFix).ToList();
-                if (categoryFixes.Count > 0)
-                    actions.Add(MPOUI.ActionButton("Fix " + category + "...", () => OpenAutomaticFixes(categoryFixes)));
+                int count = _activeIssueCache.Count(issue => issue != null && issue.Category == category && issue.CanFix && issue.FixSafety != MPOFixSafety.Manual);
+                copy.Add(MPOUI.Text("CATEGORY FIX", "mpo-stat-kicker"));
+                copy.Add(MPOUI.Text(MPOConstants.FriendlyCategoryName(category), "mpo-next-title"));
+                copy.Add(MPOUI.Text(count.ToString("N0") + " fix action(s) available in this category.", "mpo-stat-copy"));
+                card.Add(copy);
+
+                MPOBulkFixPreset preset = GetOrCreateCategoryPreset(category);
+                if (preset != null && preset.HasEditableSettings)
+                {
+                    var custom = new VisualElement();
+                    custom.AddToClassList("mpo-category-custom-settings");
+                    custom.Add(MPOUI.Text("BATCH VALUES", "mpo-stat-kicker"));
+                    custom.Add(MPOUI.Text("Use Recommended, or set one custom value for every compatible asset in this category.", "mpo-stat-copy"));
+                    custom.Add(MPOFixPlanUI.BuildBulk(preset));
+                    card.Add(custom);
+                }
+
+                var actions = new VisualElement();
+                actions.AddToClassList("mpo-action-row");
+                var fix = MPOUI.ActionButton("Fix All " + MPOConstants.FriendlyCategoryName(category) + "...", () => OpenCategoryFixes(category, preset));
+                fix.AddToClassList("mpo-primary");
+                fix.SetEnabled(count > 0);
+                actions.Add(fix);
+                card.Add(actions);
+            }
+            else
+            {
+                copy.Add(MPOUI.Text("FIXES ARE CATEGORY-BASED", "mpo-stat-kicker"));
+                copy.Add(MPOUI.Text(_cachedFixableCount.ToString("N0") + " fix action(s) available", "mpo-next-title"));
+                copy.Add(MPOUI.Text("Choose a category tab to review its assets, or open the Fixes page to handle categories one by one.", "mpo-stat-copy"));
+                card.Add(copy);
+
+                var actions = new VisualElement();
+                actions.AddToClassList("mpo-action-row");
+                var open = MPOUI.ActionButton("Open Category Fixes", () => SetPage(Page.Fixes));
+                open.AddToClassList("mpo-primary");
+                actions.Add(open);
+                card.Add(actions);
             }
 
-            actions.Add(MPOUI.ActionButton("Open Fixes Page", () => SetPage(Page.Fixes)));
-            card.Add(actions);
             return card;
         }
 
-        private VisualElement BuildIssueToolbar()
+        private VisualElement BuildIssueCategoryTabs()
         {
-            var block = new VisualElement();
-
-            var viewRow = new VisualElement();
-            viewRow.AddToClassList("mpo-view-row");
-            viewRow.Add(MPOUI.Text("SHOW", "mpo-stat-kicker"));
-            _groupedViewButton = CreateFilterChip("Grouped Problems", _findingsViewMode == FindingsViewMode.Groups, () =>
-            {
-                _groupFilterKey = string.Empty;
-                _selectedIssueGroup = null;
-                _selectedIssue = null;
-                _findingsViewMode = FindingsViewMode.Groups;
-                RefreshFindingViewButtons();
-                RefreshIssueList();
-            });
-            _assetViewButton = CreateFilterChip("Individual Assets", _findingsViewMode == FindingsViewMode.Assets, () =>
-            {
-                _findingsViewMode = FindingsViewMode.Assets;
-                RefreshFindingViewButtons();
-                RefreshIssueList();
-            });
-            viewRow.Add(_groupedViewButton);
-            viewRow.Add(_assetViewButton);
-
-            if (!string.IsNullOrWhiteSpace(_groupFilterKey))
-            {
-                int scopedCount = CountIssuesInGroup(_groupFilterKey);
-                viewRow.Add(MPOUI.Badge("GROUP  •  " + scopedCount.ToString("N0") + " ITEMS", "mpo-impact-medium"));
-                var clearGroup = MPOUI.ActionButton("Back to all", () =>
-                {
-                    _groupFilterKey = string.Empty;
-                    _selectedIssueGroup = null;
-                    _selectedIssue = null;
-                    _findingsViewMode = FindingsViewMode.Groups;
-                    SetPage(Page.Issues);
-                }, "mpo-button");
-                clearGroup.AddToClassList("mpo-ghost");
-                viewRow.Add(clearGroup);
-            }
-            block.Add(viewRow);
+            _findingsViewMode = FindingsViewMode.Assets;
+            _groupFilterKey = string.Empty;
 
             var categories = new VisualElement();
             categories.AddToClassList("mpo-category-tabs");
             _categoryTabs.Clear();
             categories.Add(BuildCategoryTab(0, "All"));
             foreach (MPOCategory category in Enum.GetValues(typeof(MPOCategory)))
-                categories.Add(BuildCategoryTab((int)category + 1, category.ToString()));
-            block.Add(categories);
+            {
+                if (MPOConstants.IsCoreReleaseCategory(category))
+                    categories.Add(BuildCategoryTab((int)category + 1, MPOConstants.FriendlyCategoryName(category)));
+            }
+            return categories;
+        }
 
+        private VisualElement BuildIssueSearchToolbar()
+        {
             var toolbar = new VisualElement();
             toolbar.AddToClassList("mpo-toolbar");
             _searchField = new ToolbarSearchField();
             _searchField.value = _search;
-            _searchField.tooltip = "Search problems or asset names.";
+            _searchField.tooltip = "Search asset or problem.";
             _searchField.AddToClassList("mpo-search");
             _searchField.RegisterValueChangedCallback(evt =>
             {
@@ -1082,37 +1076,18 @@ namespace MobilePerformanceOptimizer
             });
             toolbar.Add(_searchField);
 
+            _fixableFilter = CreateFilterChip("Fixable only", _showOnlyFixable, () =>
+            {
+                _showOnlyFixable = !_showOnlyFixable;
+                RefreshFilterChip(_fixableFilter, _showOnlyFixable);
+                RefreshIssueList();
+            });
+            toolbar.Add(_fixableFilter);
+
             var clear = MPOUI.ActionButton("Reset", ClearIssueFilters, "mpo-button");
             clear.AddToClassList("mpo-ghost");
             toolbar.Add(clear);
-            block.Add(toolbar);
-
-            var advanced = new Foldout { text = "More filters", value = false };
-            advanced.AddToClassList("mpo-filter-foldout");
-            var filters = new VisualElement();
-            filters.AddToClassList("mpo-filter-strip");
-            _criticalFilter = CreateFilterChip("Critical", _showCritical, () => { _showCritical = !_showCritical; RefreshFilterChip(_criticalFilter, _showCritical); RefreshIssueList(); });
-            _warningFilter = CreateFilterChip("Warnings", _showWarnings, () => { _showWarnings = !_showWarnings; RefreshFilterChip(_warningFilter, _showWarnings); RefreshIssueList(); });
-            _suggestionFilter = CreateFilterChip("Suggestions", _showSuggestions, () => { _showSuggestions = !_showSuggestions; RefreshFilterChip(_suggestionFilter, _showSuggestions); RefreshIssueList(); });
-            _fixableFilter = CreateFilterChip("Fixable only", _showOnlyFixable, () => { _showOnlyFixable = !_showOnlyFixable; RefreshFilterChip(_fixableFilter, _showOnlyFixable); RefreshIssueList(); });
-            _impactFilter = CreateFilterChip("High impact", _showOnlyHighImpact, () => { _showOnlyHighImpact = !_showOnlyHighImpact; RefreshFilterChip(_impactFilter, _showOnlyHighImpact); RefreshIssueList(); });
-            filters.Add(_criticalFilter);
-            filters.Add(_warningFilter);
-            filters.Add(_suggestionFilter);
-            filters.Add(_fixableFilter);
-            filters.Add(_impactFilter);
-
-            _sortField = new EnumField("Sort", _sortMode);
-            _sortField.AddToClassList("mpo-sort");
-            _sortField.RegisterValueChangedCallback(evt =>
-            {
-                _sortMode = (IssueSortMode)evt.newValue;
-                RefreshIssueList();
-            });
-            filters.Add(_sortField);
-            advanced.Add(filters);
-            block.Add(advanced);
-            return block;
+            return toolbar;
         }
 
         private Button BuildCategoryTab(int index, string label)
@@ -1120,8 +1095,8 @@ namespace MobilePerformanceOptimizer
             var button = new Button(() =>
             {
                 _categoryFilterIndex = index;
-                RefreshCategoryTabs();
-                RefreshIssueList();
+                _selectedIssue = null;
+                RenderCurrentPage();
             }) { text = label };
             button.AddToClassList("mpo-category-tab");
             _categoryTabs[index] = button;
@@ -1435,7 +1410,7 @@ namespace MobilePerformanceOptimizer
             if (group.FixableCount - group.SafeFixCount > 0)
                 actions.Add(MPOUI.ActionButton("Review Fixes", () => ReviewRecommendedFixes(group.Issues)));
 
-            if (group.Representative != null)
+            if (MPOConstants.EnableIgnoreUi && group.Representative != null)
                 actions.Add(MPOUI.ActionButton("Ignore…", () => ShowIgnoreMenu(group.Representative)));
             card.Add(actions);
             return card;
@@ -1516,7 +1491,7 @@ namespace MobilePerformanceOptimizer
                 actions.Add(fix);
             }
 
-            if (!fixContext)
+            if (MPOConstants.EnableIgnoreUi && !fixContext)
                 actions.Add(MPOUI.ActionButton("Ignore…", () => ShowIgnoreMenu(issue)));
             card.Add(actions);
             return card;
@@ -1658,56 +1633,115 @@ namespace MobilePerformanceOptimizer
 
         private VisualElement BuildFixesPage()
         {
-            var page = new VisualElement();
-            page.AddToClassList("mpo-page");
-            page.Add(BuildPageHeader("Fixes", "Apply safe fixes automatically. Review quality-changing fixes before applying them. Manual problems are never changed for you."));
-            AddStatusBanners(page);
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.AddToClassList("mpo-scroll-page");
+            scroll.contentContainer.AddToClassList("mpo-scroll-content");
+            scroll.Add(BuildPageHeader("Fixes by Category", "No global Fix All. Open one category, review the exact changes, then apply only those fixes."));
+            AddStatusBanners(scroll);
 
             if (_scanResult == null)
             {
-                page.Add(MPOUI.EmptyState("Nothing to fix yet", "Run a scan first. Safe and review-required fixes will appear here."));
-                return page;
+                scroll.Add(MPOUI.EmptyState("Nothing to fix yet", "Run a scan first."));
+                return scroll;
             }
 
             EnsureActiveIssueCache();
-            var stats = new VisualElement();
-            stats.AddToClassList("mpo-card-row");
-            stats.Add(BuildFixActionCard("SAFE FIXES", _cachedSafeFixCount, "Low-risk and fully revertible.", "Fix All Safe Issues", FixAllSafeIssues, _cachedSafeFixCount > 0, "mpo-fix-safe-card"));
-            stats.Add(BuildFixActionCard("RECOMMENDED FIXES", _cachedReviewFixCount, "Texture sizing, GPU Instancing and other changes that need one preview.", "Fix All Recommended...", () => OpenAutomaticFixes(_activeIssueCache.Where(issue => issue != null && issue.FixSafety == MPOFixSafety.ReviewRequired)), _cachedReviewFixCount > 0, "mpo-fix-review-card"));
-            stats.Add(BuildFixActionCard("MANUAL", _cachedManualCount, "Needs a human decision. The tool will not auto-change these.", "View Problems", () => SetPage(Page.Issues), _cachedManualCount > 0, "mpo-fix-manual-card"));
-            page.Add(stats);
 
-            var utilityRow = new VisualElement();
-            utilityRow.AddToClassList("mpo-card-row");
-            utilityRow.Add(BuildRevertCard());
-            utilityRow.Add(BuildIgnoreCard());
-            page.Add(utilityRow);
+            var info = MPOUI.Card("mpo-friendly-card");
+            info.Add(MPOUI.Text("Simple workflow", "mpo-next-title"));
+            info.Add(MPOUI.Text("1. Pick a category  →  2. Review the proposed settings  →  3. Apply selected fixes  →  4. The same scan scope refreshes automatically.", "mpo-copy"));
+            scroll.Add(info);
 
-            page.Add(MPOUI.SectionHeader("Individual recommended fixes", "Use this list when you want to review one asset at a time."));
-            var split = new VisualElement();
-            split.AddToClassList("mpo-split");
+            MPOCategory[] categories =
+            {
+                MPOCategory.Textures,
+                MPOCategory.Materials,
+                MPOCategory.Meshes,
+                MPOCategory.Audio,
+                MPOCategory.URP,
+                MPOCategory.Quality,
+                MPOCategory.Build
+            };
 
-            var listPane = new VisualElement();
-            listPane.AddToClassList("mpo-list-pane");
-            _fixList = new ListView();
-            _fixList.AddToClassList("mpo-list");
-            _fixList.selectionType = SelectionType.Single;
-            _fixList.virtualizationMethod = CollectionVirtualizationMethod.FixedHeight;
-            _fixList.fixedItemHeight = 72f;
-            _fixList.makeItem = MakeFixRow;
-            _fixList.bindItem = BindFixRow;
-            _fixList.unbindItem = (element, index) => { };
-            _fixList.selectedIndicesChanged += OnFixSelectionChanged;
-            listPane.Add(_fixList);
-            split.Add(listPane);
+            var grid = new VisualElement();
+            grid.AddToClassList("mpo-card-row");
+            foreach (MPOCategory category in categories)
+                grid.Add(BuildCategoryFixCard(category));
+            scroll.Add(grid);
 
-            _fixDetailHost = new VisualElement();
-            _fixDetailHost.AddToClassList("mpo-detail-pane");
-            split.Add(_fixDetailHost);
-            page.Add(split);
+            scroll.Add(MPOUI.SectionHeader("Safety", "Every applied setting is verified after Unity saves/imports it. The last fix session can be reverted."));
+            scroll.Add(BuildRevertCard());
 
-            RefreshFixList();
-            return page;
+            return scroll;
+        }
+
+        private VisualElement BuildCategoryFixCard(MPOCategory category)
+        {
+            EnsureActiveIssueCache();
+
+            List<MPOIssue> issues = _activeIssueCache
+                .Where(issue => issue != null && issue.Category == category)
+                .ToList();
+
+            int fixable = issues.Count(issue => issue.CanFix && issue.FixSafety != MPOFixSafety.Manual);
+            int manual = issues.Count - fixable;
+
+            var card = MPOUI.Card("mpo-report-card");
+            card.Add(MPOUI.Text(MPOConstants.FriendlyCategoryName(category).ToUpperInvariant(), "mpo-stat-kicker"));
+            card.Add(MPOUI.Text(fixable.ToString("N0") + " fixable", "mpo-next-title"));
+            card.Add(MPOUI.Text(issues.Count.ToString("N0") + " problem(s)  •  " + manual.ToString("N0") + " manual", "mpo-stat-copy"));
+
+            string help;
+            switch (category)
+            {
+                case MPOCategory.Textures:
+                    help = "Mobile max size, Read/Write and applicable mip-map cleanup.";
+                    break;
+                case MPOCategory.Materials:
+                    help = "GPU Instancing on compatible repeated materials.";
+                    break;
+                case MPOCategory.Meshes:
+                    help = "Model Read/Write importer cleanup.";
+                    break;
+                case MPOCategory.Audio:
+                    help = "Long clips: streaming and preload settings.";
+                    break;
+                case MPOCategory.URP:
+                    help = "Core mobile URP settings detected by the active profile.";
+                    break;
+                case MPOCategory.Quality:
+                    help = "Active quality settings such as MSAA, shadows and LOD guidance.";
+                    break;
+                case MPOCategory.Build:
+                    help = "Development/debug/profiler build flags.";
+                    break;
+                default:
+                    help = "Recommended mobile settings.";
+                    break;
+            }
+            card.Add(MPOUI.Text(help, "mpo-stat-copy"));
+
+            var button = MPOUI.ActionButton(
+                fixable > 0 ? "Fix All " + MPOConstants.FriendlyCategoryName(category) + "..." : "No fixes available",
+                () => OpenCategoryFixes(category, GetOrCreateCategoryPreset(category)));
+            button.SetEnabled(fixable > 0);
+            button.AddToClassList("mpo-primary");
+            button.style.marginTop = 12f;
+            card.Add(button);
+
+            if (issues.Count > 0)
+            {
+                var problems = MPOUI.ActionButton("View Problems", () =>
+                {
+                    _categoryFilterIndex = (int)category + 1;
+                    _findingsViewMode = FindingsViewMode.Assets;
+                    SetPage(Page.Issues);
+                });
+                problems.style.marginTop = 6f;
+                card.Add(problems);
+            }
+
+            return card;
         }
 
         private VisualElement BuildFixActionCard(string title, int value, string copy, string actionLabel, Action action, bool enabled, string styleClass)
@@ -1871,11 +1905,14 @@ namespace MobilePerformanceOptimizer
                 scroll.Add(last);
             }
 
-            scroll.Add(MPOUI.SectionHeader("Before / after", "Comparison uses the previous completed scan with the same platform, device tier and scan scope."));
-            scroll.Add(BuildComparisonCard(current));
+            if (MPOConstants.EnableScanHistory)
+            {
+                scroll.Add(MPOUI.SectionHeader("Before / after", "Comparison uses the previous completed scan with the same platform, device tier and scan scope."));
+                scroll.Add(BuildComparisonCard(current));
 
-            scroll.Add(MPOUI.SectionHeader("Recent scan history", "Up to 25 completed scans are stored locally under the project Library folder."));
-            scroll.Add(BuildHistoryCard(current));
+                scroll.Add(MPOUI.SectionHeader("Recent scan history", "Completed scans are stored locally under the project Library folder."));
+                scroll.Add(BuildHistoryCard(current));
+            }
             return scroll;
         }
 
@@ -2062,19 +2099,24 @@ namespace MobilePerformanceOptimizer
             _selectedIssueGroup = null;
             _selectedFixIssue = null;
             _groupFilterKey = string.Empty;
+            _categoryBulkPresets.Clear();
             InvalidateIssueCache();
 
-            try
+            _currentHistoryId = string.Empty;
+            if (MPOConstants.EnableScanHistory || MPOConstants.EnableReports)
             {
-                MPOScanSnapshotData snapshot = MPOReportSnapshotBuilder.Build(_scanResult, _scanPlatform, _scanTier, null, _scanScope);
-                _currentHistoryId = snapshot != null ? snapshot.id : string.Empty;
-                if (!_scanResult.WasCancelled && snapshot != null)
-                    MPOScanHistoryStore.Add(snapshot);
-            }
-            catch (Exception exception)
-            {
-                _scanResult.AddRecoverableWarning("Reports / History", "Post-scan snapshot", exception);
-                Debug.LogWarning("[Mobile Performance Optimizer] Scan completed, but history/report snapshot creation failed. Results remain available.\n" + exception);
+                try
+                {
+                    MPOScanSnapshotData snapshot = MPOReportSnapshotBuilder.Build(_scanResult, _scanPlatform, _scanTier, null, _scanScope);
+                    _currentHistoryId = snapshot != null ? snapshot.id : string.Empty;
+                    if (MPOConstants.EnableScanHistory && !_scanResult.WasCancelled && snapshot != null)
+                        MPOScanHistoryStore.Add(snapshot);
+                }
+                catch (Exception exception)
+                {
+                    _scanResult.AddRecoverableWarning("Reports / History", "Post-scan snapshot", exception);
+                    Debug.LogWarning("[Mobile Performance Optimizer] Scan completed, but optional report/history snapshot creation failed. Results remain available.\n" + exception);
+                }
             }
 
             RefreshAllData();
@@ -2197,7 +2239,7 @@ namespace MobilePerformanceOptimizer
             {
                 foreach (MPOIssue issue in _scanResult.AllIssues)
                 {
-                    if (issue == null || MPOIgnoreStore.IsIgnored(issue))
+                    if (issue == null || (MPOConstants.EnableIgnoreUi && MPOIgnoreStore.IsIgnored(issue)))
                         continue;
                     _activeIssueCache.Add(issue);
                     _activeCategoryCounts.TryGetValue(issue.Category, out int count);
@@ -2209,7 +2251,9 @@ namespace MobilePerformanceOptimizer
                 _cachedWarningCount = _activeIssueCache.Count(x => x.Severity == MPOSeverity.Warning);
                 _cachedSuggestionCount = _activeIssueCache.Count(x => x.Severity == MPOSeverity.Suggestion);
                 _cachedFixableCount = _activeIssueCache.Count(x => x.CanFix);
-                _cachedIgnoredCount = Math.Max(0, _scanResult.AllIssues.Count() - _activeIssueCache.Count);
+                _cachedIgnoredCount = MPOConstants.EnableIgnoreUi
+                    ? Math.Max(0, _scanResult.AllIssues.Count() - _activeIssueCache.Count)
+                    : 0;
                 _cachedSafeFixCount = _activeIssueCache.Count(x => x.CanFix && x.FixSafety == MPOFixSafety.Safe);
                 _cachedReviewFixCount = _activeIssueCache.Count(x => x.CanFix && x.FixSafety == MPOFixSafety.ReviewRequired);
                 _cachedManualCount = _activeIssueCache.Count(x => !x.CanFix);
@@ -2281,6 +2325,49 @@ namespace MobilePerformanceOptimizer
             RefreshAllData();
             if (_scanScope != null && !MPOScanRunner.IsRunning)
                 MPOScanRunner.Start(MPOProfile.Create(_scanPlatform, _scanTier), _scanScope, OnScanCompleted, UpdateScanUi);
+        }
+
+        private MPOBulkFixPreset GetOrCreateCategoryPreset(MPOCategory category)
+        {
+            EnsureActiveIssueCache();
+            if (_categoryBulkPresets.TryGetValue(category, out MPOBulkFixPreset cached))
+                return cached;
+
+            MPOBulkFixPreset preset = MPOBulkFixPreset.Create(category, _activeIssueCache);
+            _categoryBulkPresets[category] = preset;
+            return preset;
+        }
+
+        private void OpenCategoryFixes(MPOCategory category)
+        {
+            OpenCategoryFixes(category, GetOrCreateCategoryPreset(category));
+        }
+
+        private void OpenCategoryFixes(MPOCategory category, MPOBulkFixPreset preset)
+        {
+            EnsureActiveIssueCache();
+
+            List<MPOIssue> fixes = _activeIssueCache
+                .Where(issue => issue != null &&
+                                issue.Category == category &&
+                                issue.CanFix &&
+                                issue.FixSafety != MPOFixSafety.Manual)
+                .ToList();
+
+            if (fixes.Count == 0)
+            {
+                EditorUtility.DisplayDialog(
+                    "Mobile Performance Optimizer",
+                    "No automatic " + MPOConstants.FriendlyCategoryName(category) + " fixes are available in the current scan.",
+                    "OK");
+                return;
+            }
+
+            MPOBatchFixWindow.ShowFor(
+                fixes,
+                RefreshAfterOptimization,
+                MPOConstants.FriendlyCategoryName(category) + " Fixes",
+                preset);
         }
 
         private void OpenAutomaticFixes(IEnumerable<MPOIssue> source)

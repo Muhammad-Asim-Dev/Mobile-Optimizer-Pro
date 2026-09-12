@@ -21,7 +21,7 @@ namespace MobilePerformanceOptimizer
             root.AddToClassList("mpo-root");
             root.RemoveFromClassList("mpo-light");
             root.AddToClassList("mpo-dark");
-            root.AddToClassList("mpo-midnight-amber");
+            root.AddToClassList("mpo-ocean");
         }
 
         public static VisualElement Card(string extraClass = null)

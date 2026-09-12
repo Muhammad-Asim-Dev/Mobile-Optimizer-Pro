@@ -119,6 +119,158 @@ namespace MobilePerformanceOptimizer
         }
     }
 
+    /// <summary>
+    /// A small category-level preset used by the production UI. It lets the user choose
+    /// one custom value once and reuses it for every compatible fix in that category.
+    /// Individual plans still validate the value against the real Unity object before Apply.
+    /// </summary>
+    public sealed class MPOBulkSettingChoice
+    {
+        public string Key { get; internal set; }
+        public string DisplayName { get; internal set; }
+        public object Recommended { get; internal set; }
+        public object Selected { get; set; }
+        public bool Enabled { get; set; }
+        public object[] Choices { get; internal set; }
+        internal bool DefaultEnabled;
+        internal System.Type ValueType;
+    }
+
+    public sealed class MPOBulkFixPreset
+    {
+        public MPOCategory Category { get; private set; }
+        public List<MPOBulkSettingChoice> Settings { get; } = new List<MPOBulkSettingChoice>();
+        public bool Custom { get; private set; }
+
+        public bool HasEditableSettings => Settings.Count > 0;
+
+        public void SetCustom(bool custom)
+        {
+            Custom = custom;
+            foreach (MPOBulkSettingChoice setting in Settings)
+            {
+                setting.Enabled = custom && setting.DefaultEnabled;
+                setting.Selected = setting.Recommended;
+            }
+        }
+
+        public void ResetToRecommended()
+        {
+            SetCustom(false);
+        }
+
+        internal void ApplyTo(MPOFixPlan plan)
+        {
+            if (plan == null || plan.Error != null || !Custom)
+                return;
+
+            plan.SetCustom(true);
+            foreach (MPOBulkSettingChoice bulk in Settings.Where(item => item.Enabled))
+            {
+                MPOSettingChoice target = plan.Settings.FirstOrDefault(setting => setting.Key == bulk.Key);
+                if (target == null || bulk.Selected == null || target.Current == null)
+                    continue;
+
+                object value = bulk.Selected;
+                if (value.GetType() != target.Current.GetType())
+                    continue;
+                if (target.Choices != null && !target.Choices.Contains(value))
+                    continue;
+                if (target.Validate != null && !target.Validate(value))
+                    continue;
+
+                target.Enabled = true;
+                target.Selected = value;
+            }
+        }
+
+        public static MPOBulkFixPreset Create(MPOCategory category, IEnumerable<MPOIssue> source)
+        {
+            var preset = new MPOBulkFixPreset { Category = category };
+            if (source == null)
+                return preset;
+
+            List<MPOIssue> issues = source
+                .Where(issue => issue != null && issue.Category == category && issue.CanFix && issue.FixSafety != MPOFixSafety.Manual)
+                .ToList();
+
+            // Build only one representative plan per distinct action shape. This keeps the category
+            // toolbar instant even when the project contains thousands of textures or models.
+            IEnumerable<MPOIssue> representatives = issues
+                .GroupBy(issue => issue.FixKind + "|" + issue.FixStringValue + "|" +
+                                  string.Join(",", issue.SettingRecommendations.Keys.OrderBy(key => key)))
+                .Select(group => group.First());
+
+            foreach (MPOIssue issue in representatives)
+            {
+                if (issue.FixKind == MPOFixKind.DisableDevelopmentBuildFlags)
+                    continue;
+
+                MPOFixPlan plan = MPOFixPlans.Create(issue);
+                if (plan == null || plan.Error != null)
+                    continue;
+
+                foreach (MPOSettingChoice setting in plan.Settings)
+                {
+                    if (!IsBulkFriendly(setting))
+                        continue;
+
+                    MPOBulkSettingChoice existing = preset.Settings.FirstOrDefault(item => item.Key == setting.Key);
+                    if (existing == null)
+                    {
+                        preset.Settings.Add(new MPOBulkSettingChoice
+                        {
+                            Key = setting.Key,
+                            DisplayName = setting.DisplayName,
+                            Recommended = setting.Recommended,
+                            Selected = setting.Recommended,
+                            Enabled = false,
+                            DefaultEnabled = setting.RecommendedEnabled,
+                            Choices = setting.Choices,
+                            ValueType = setting.Current != null ? setting.Current.GetType() : null
+                        });
+                    }
+                    else
+                    {
+                        existing.DefaultEnabled |= setting.RecommendedEnabled;
+                        if (setting.RecommendedEnabled)
+                        {
+                            existing.Recommended = setting.Recommended;
+                            if (!preset.Custom)
+                                existing.Selected = setting.Recommended;
+                        }
+
+                        if (existing.Choices != null && setting.Choices != null)
+                            existing.Choices = existing.Choices.Where(value => setting.Choices.Contains(value)).ToArray();
+                    }
+                }
+            }
+
+            preset.Settings.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));
+            return preset;
+        }
+
+        private static bool IsBulkFriendly(MPOSettingChoice setting)
+        {
+            if (setting == null || setting.Current == null)
+                return false;
+
+            string key = setting.Key ?? string.Empty;
+            // Keep category-level editing conservative. Platform format/crunch and linked material
+            // emission values can require per-asset compatibility checks, so they stay in the single-item preview.
+            if (key.EndsWith(" Format", StringComparison.Ordinal) ||
+                key.EndsWith(" Crunch", StringComparison.Ordinal) ||
+                key.EndsWith(" Override", StringComparison.Ordinal) ||
+                key.IndexOf("Sample Override", StringComparison.Ordinal) >= 0 ||
+                key.StartsWith("Emission", StringComparison.Ordinal))
+                return false;
+
+            System.Type type = setting.Current.GetType();
+            return type == typeof(bool) || type == typeof(int) || type == typeof(float) ||
+                   (setting.Choices != null && setting.Choices.Length > 0);
+        }
+    }
+
     public static class MPOFixPlans
     {
         private static readonly object[] Sizes = { 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192 };
@@ -132,11 +284,23 @@ namespace MobilePerformanceOptimizer
                 if (issue == null) throw new InvalidOperationException("No issue selected.");
                 plan.Target = string.IsNullOrEmpty(issue.AssetPath) ? null : AssetImporter.GetAtPath(issue.AssetPath);
                 plan.Importer = plan.Target != null;
-                if (issue.Category == MPOCategory.Materials || issue.Category == MPOCategory.URP || issue.Category == MPOCategory.Quality || issue.Category == MPOCategory.Physics)
+
+                if (issue.Category == MPOCategory.Materials)
+                {
+                    // Material fixes must resolve the actual .mat asset, not the first object returned by LoadAllAssetsAtPath.
+                    plan.Target = issue.ContextObject as Material;
+                    if (plan.Target == null && !string.IsNullOrEmpty(issue.AssetPath))
+                        plan.Target = AssetDatabase.LoadAssetAtPath<Material>(issue.AssetPath);
+                    if (plan.Target == null && !string.IsNullOrEmpty(issue.AssetPath))
+                        plan.Target = AssetDatabase.LoadAllAssetsAtPath(issue.AssetPath).OfType<Material>().FirstOrDefault();
+                    plan.Importer = false;
+                }
+                else if (issue.Category == MPOCategory.URP || issue.Category == MPOCategory.Quality || issue.Category == MPOCategory.Physics)
                 {
                     plan.Target = AssetDatabase.LoadAllAssetsAtPath(issue.AssetPath).FirstOrDefault();
                     plan.Importer = false;
                 }
+
                 if (issue.ContextObject is ParticleSystem) { plan.Target = issue.ContextObject; plan.Importer = false; }
                 if (plan.Target == null) throw new InvalidOperationException("Editable asset/importer is unavailable.");
                 plan.TargetId = GlobalObjectId.GetGlobalObjectIdSlow(plan.Target).ToString();
@@ -154,38 +318,56 @@ namespace MobilePerformanceOptimizer
 
         private static void Texture(MPOFixPlan p)
         {
-            var t = (TextureImporter)p.Target;
-            p.Add("Read/Write", false, p.Issue.FixKind == MPOFixKind.DisableTextureReadWrite,
-                o => ((TextureImporter)o).isReadable, (o,v) => ((TextureImporter)o).isReadable = (bool)v);
-            p.Add("Mip Maps", false, p.Issue.FixKind == MPOFixKind.DisableTextureMipmaps,
-                o => ((TextureImporter)o).mipmapEnabled, (o,v) => ((TextureImporter)o).mipmapEnabled = (bool)v);
-            p.Add("Default Max Size", null, false, o => ((TextureImporter)o).maxTextureSize,
-                (o,v) => ((TextureImporter)o).maxTextureSize = (int)v, Sizes);
-            p.Add("Default Compression", null, false, o => ((TextureImporter)o).textureCompression,
-                (o,v) => ((TextureImporter)o).textureCompression = (TextureImporterCompression)v, Values<TextureImporterCompression>());
-            p.Add("Default Compression Quality", null, false, o => ((TextureImporter)o).compressionQuality,
-                (o,v) => ((TextureImporter)o).compressionQuality = (int)v, validate: v => (int)v >= 0 && (int)v <= 100);
-            foreach (string platform in new[] { "Android", "iPhone" })
+            var importer = (TextureImporter)p.Target;
+
+            if (p.Issue.FixKind == MPOFixKind.DisableTextureReadWrite)
             {
-                bool recommended = p.Issue.FixKind == MPOFixKind.SetTexturePlatformMaxSize && p.Issue.FixStringValue == platform;
-                Action<string, object, bool, Func<TextureImporterPlatformSettings, object>, Action<TextureImporterPlatformSettings, object>, object[], Func<object,bool>> add =
-                    (key, rec, enabled, read, write, choices, validate) => p.Add(platform + " " + key, rec, enabled,
-                        o => read(((TextureImporter)o).GetPlatformTextureSettings(platform)), (o,v) => {
-                            var importer = (TextureImporter)o;
-                            var settings = importer.GetPlatformTextureSettings(platform);
+                p.Add("Read/Write", false, true,
+                    o => ((TextureImporter)o).isReadable,
+                    (o, v) => ((TextureImporter)o).isReadable = (bool)v);
+            }
+            else if (p.Issue.FixKind == MPOFixKind.DisableTextureMipmaps)
+            {
+                p.Add("Mip Maps", false, true,
+                    o => ((TextureImporter)o).mipmapEnabled,
+                    (o, v) => ((TextureImporter)o).mipmapEnabled = (bool)v);
+            }
+            else if (p.Issue.FixKind == MPOFixKind.SetTexturePlatformMaxSize)
+            {
+                string platform = p.Issue.FixStringValue;
+                if (platform != "Android" && platform != "iPhone")
+                    throw new InvalidOperationException("Texture fix target platform is missing.");
+
+                Action<string, object, bool, Func<TextureImporterPlatformSettings, object>, Action<TextureImporterPlatformSettings, object>, object[], Func<object, bool>> add =
+                    (key, recommended, enabled, read, write, choices, validate) => p.Add(platform + " " + key, recommended, enabled,
+                        o => read(((TextureImporter)o).GetPlatformTextureSettings(platform)),
+                        (o, v) =>
+                        {
+                            var textureImporter = (TextureImporter)o;
+                            var settings = textureImporter.GetPlatformTextureSettings(platform);
                             settings.name = platform;
                             write(settings, v);
-                            importer.SetPlatformTextureSettings(settings);
+                            textureImporter.SetPlatformTextureSettings(settings);
                         }, choices, validate);
-                add("Override", true, recommended, s => s.overridden, (s,v) => s.overridden = (bool)v, null, null);
-                add("Max Size", recommended ? (object)p.Issue.FixIntValue : null, recommended, s => s.maxTextureSize,
-                    (s,v) => s.maxTextureSize = (int)v, Sizes, null);
-                var target = platform == "Android" ? BuildTarget.Android : BuildTarget.iOS;
-                var formats = Values<TextureImporterFormat>().Where(v => TextureImporter.IsPlatformTextureFormatValid(t.textureType, target, (TextureImporterFormat)v)).ToArray();
-                add("Format", null, false, s => s.format, (s,v) => s.format = (TextureImporterFormat)v, formats, null);
-                add("Compression", null, false, s => s.textureCompression, (s,v) => s.textureCompression = (TextureImporterCompression)v, Values<TextureImporterCompression>(), null);
-                add("Compression Quality", null, false, s => s.compressionQuality, (s,v) => s.compressionQuality = (int)v, null, v => (int)v >= 0 && (int)v <= 100);
-                add("Crunch", null, false, s => s.crunchedCompression, (s,v) => s.crunchedCompression = (bool)v, null, null);
+
+                add("Override", true, true, s => s.overridden, (s, v) => s.overridden = (bool)v, null, null);
+                add("Max Size", p.Issue.FixIntValue, true, s => s.maxTextureSize,
+                    (s, v) => s.maxTextureSize = (int)v, Sizes, null);
+
+                // Optional user-controlled importer values. They are disabled by default and appear only
+                // when the user chooses Custom mode; the recommended fix remains unchanged.
+                BuildTarget target = platform == "Android" ? BuildTarget.Android : BuildTarget.iOS;
+                object[] formats = Values<TextureImporterFormat>()
+                    .Where(v => TextureImporter.IsPlatformTextureFormatValid(importer.textureType, target, (TextureImporterFormat)v))
+                    .ToArray();
+                add("Format", null, false, s => s.format, (s, v) => s.format = (TextureImporterFormat)v, formats, null);
+                add("Compression", null, false, s => s.textureCompression, (s, v) => s.textureCompression = (TextureImporterCompression)v, Values<TextureImporterCompression>(), null);
+                add("Compression Quality", null, false, s => s.compressionQuality, (s, v) => s.compressionQuality = (int)v, null, v => (int)v >= 0 && (int)v <= 100);
+                add("Crunch", null, false, s => s.crunchedCompression, (s, v) => s.crunchedCompression = (bool)v, null, null);
+            }
+            else
+            {
+                throw new InvalidOperationException("This texture finding is informational in the focused release.");
             }
         }
 
@@ -193,64 +375,134 @@ namespace MobilePerformanceOptimizer
         {
             string platform = p.Issue.FixStringValue;
             bool mobile = platform == "Android" || platform == "iPhone";
-            Func<Object, AudioImporterSampleSettings> read = o => mobile && ((AudioImporter)o).ContainsSampleSettingsOverride(platform)
-                ? ((AudioImporter)o).GetOverrideSampleSettings(platform) : ((AudioImporter)o).defaultSampleSettings;
-            Action<Object, AudioImporterSampleSettings> write = (o,s) => {
-                if (mobile) {
-                    if (!((AudioImporter)o).SetOverrideSampleSettings(platform, s)) throw new InvalidOperationException("Unity rejected the audio override.");
-                } else ((AudioImporter)o).defaultSampleSettings = s;
+
+            Func<Object, AudioImporterSampleSettings> read = o =>
+                mobile && ((AudioImporter)o).ContainsSampleSettingsOverride(platform)
+                    ? ((AudioImporter)o).GetOverrideSampleSettings(platform)
+                    : ((AudioImporter)o).defaultSampleSettings;
+
+            Action<Object, AudioImporterSampleSettings> write = (o, settings) =>
+            {
+                var importer = (AudioImporter)o;
+                if (mobile)
+                {
+                    if (!importer.SetOverrideSampleSettings(platform, settings))
+                        throw new InvalidOperationException("Unity rejected the audio override.");
+                }
+                else
+                {
+                    importer.defaultSampleSettings = settings;
+                }
             };
+
             if (mobile)
+            {
                 p.Add(platform + " Sample Override", true, true,
-                    o => ((AudioImporter)o).ContainsSampleSettingsOverride(platform), (o,v) => {
+                    o => ((AudioImporter)o).ContainsSampleSettingsOverride(platform),
+                    (o, v) =>
+                    {
                         var importer = (AudioImporter)o;
-                        if ((bool)v) { if (!importer.ContainsSampleSettingsOverride(platform)) importer.SetOverrideSampleSettings(platform, importer.defaultSampleSettings); }
-                        else importer.ClearSampleSettingOverride(platform);
+                        if ((bool)v)
+                        {
+                            if (!importer.ContainsSampleSettingsOverride(platform))
+                                importer.SetOverrideSampleSettings(platform, importer.defaultSampleSettings);
+                        }
+                        else
+                        {
+                            importer.ClearSampleSettingOverride(platform);
+                        }
                     });
-            p.Add((mobile ? platform : "Default") + " Load Type", AudioClipLoadType.Streaming, true, o => read(o).loadType,
-                (o,v) => { var s = read(o); s.loadType = (AudioClipLoadType)v; write(o,s); }, Values<AudioClipLoadType>());
-            p.Add("Preload Audio Data", false, true, o => read(o).preloadAudioData,
-                (o,v) => { var s = read(o); s.preloadAudioData = (bool)v; write(o,s); });
-            if (read(p.Target).compressionFormat == AudioCompressionFormat.Vorbis) p.Add("Audio Quality", null, false, o => read(o).quality,
-                (o,v) => { var s = read(o); s.quality = (float)v; write(o,s); }, validate: v => (float)v >= 0 && (float)v <= 1);
-            p.Add("Force Mono", null, false, o => ((AudioImporter)o).forceToMono, (o,v) => ((AudioImporter)o).forceToMono = (bool)v);
-            p.Add("Load In Background", null, false, o => ((AudioImporter)o).loadInBackground, (o,v) => ((AudioImporter)o).loadInBackground = (bool)v);
+            }
+
+            p.Add((mobile ? platform : "Default") + " Load Type", AudioClipLoadType.Streaming, true,
+                o => read(o).loadType,
+                (o, v) =>
+                {
+                    var settings = read(o);
+                    settings.loadType = (AudioClipLoadType)v;
+                    write(o, settings);
+                },
+                Values<AudioClipLoadType>());
+
+            p.Add("Preload Audio Data", false, true,
+                o => read(o).preloadAudioData,
+                (o, v) =>
+                {
+                    var settings = read(o);
+                    settings.preloadAudioData = (bool)v;
+                    write(o, settings);
+                });
+
+            if (read(p.Target).compressionFormat == AudioCompressionFormat.Vorbis)
+                p.Add("Audio Quality", null, false, o => read(o).quality,
+                    (o, v) => { var s = read(o); s.quality = (float)v; write(o, s); },
+                    validate: v => (float)v >= 0 && (float)v <= 1);
+
+            p.Add("Force Mono", null, false,
+                o => ((AudioImporter)o).forceToMono,
+                (o, v) => ((AudioImporter)o).forceToMono = (bool)v);
+
+            p.Add("Load In Background", null, false,
+                o => ((AudioImporter)o).loadInBackground,
+                (o, v) => ((AudioImporter)o).loadInBackground = (bool)v);
         }
 
         private static void Model(MPOFixPlan p)
         {
-            p.Add("Read/Write", false, true, o => ((ModelImporter)o).isReadable, (o,v) => ((ModelImporter)o).isReadable = (bool)v);
-            p.Add("Mesh Compression", null, false, o => ((ModelImporter)o).meshCompression,
-                (o,v) => ((ModelImporter)o).meshCompression = (ModelImporterMeshCompression)v, Values<ModelImporterMeshCompression>());
+            p.Add("Read/Write", false, true,
+                o => ((ModelImporter)o).isReadable,
+                (o, v) => ((ModelImporter)o).isReadable = (bool)v);
+
+            p.Add("Mesh Compression", null, false,
+                o => ((ModelImporter)o).meshCompression,
+                (o, v) => ((ModelImporter)o).meshCompression = (ModelImporterMeshCompression)v,
+                Values<ModelImporterMeshCompression>());
         }
 
         private static void Material(MPOFixPlan p)
         {
-            var m = (Material)p.Target;
-            if (m.shader == null || m.isVariant || !AssetDatabase.IsMainAsset(m))
+            var material = (Material)p.Target;
+            if (material.shader == null || material.isVariant || !AssetDatabase.IsMainAsset(material))
                 throw new InvalidOperationException("Missing shaders, variants and embedded materials require manual review.");
-            if (m.shader.keywordSpace.FindKeyword("INSTANCING_ON").isValid)
-                p.Add("GPU Instancing", true, true, o => ((Material)o).enableInstancing, (o,v) => ((Material)o).enableInstancing = (bool)v);
-            // Only expose emission for shaders declaring both the property and the local keyword.
-            bool knownEmission = m.shader.name == "Standard" || m.shader.name == "Standard (Specular setup)" ||
-                m.shader.name.StartsWith("Universal Render Pipeline/Lit", StringComparison.Ordinal) ||
-                m.shader.name.StartsWith("Universal Render Pipeline/Simple Lit", StringComparison.Ordinal);
-            if (knownEmission && m.HasProperty("_EmissionColor") && m.shader.keywordSpace.FindKeyword("_EMISSION").isValid)
+
+            if (p.Issue.FixKind != MPOFixKind.EnableMaterialGpuInstancing)
+                throw new InvalidOperationException("This material finding is informational in the focused release.");
+
+            if (!MPOMaterialOptimizationUtility.SupportsGpuInstancing(material))
+                throw new InvalidOperationException("This shader does not expose a supported GPU Instancing workflow.");
+
+            p.Add("GPU Instancing", true, true,
+                o => ((Material)o).enableInstancing,
+                (o, v) => ((Material)o).enableInstancing = (bool)v);
+
+            // Emission/keyword editing is intentionally disabled for the focused Asset Store release.
+            if (MPOConstants.EnableAdvancedCustomSettings)
             {
-                p.Add("Emission Color", null, false, o => ((Material)o).GetColor("_EmissionColor"),
-                    (o,v) => ((Material)o).SetColor("_EmissionColor", (Color)v), validate: v => {
-                        var color = (Color)v;
-                        return new[] { color.r, color.g, color.b, color.a }.All(c => !float.IsNaN(c) && !float.IsInfinity(c) && c >= 0);
-                    });
-                p.Add("Emission GI Flags", null, false, o => ((Material)o).globalIlluminationFlags,
-                    (o,v) => ((Material)o).globalIlluminationFlags = (MaterialGlobalIlluminationFlags)v, Enumerable.Range(0, 8).Select(v => (object)(MaterialGlobalIlluminationFlags)v).ToArray());
-                p.Add("Emission", null, false, o => ((Material)o).IsKeywordEnabled("_EMISSION"), (o,v) => {
-                    var material = (Material)o;
-                    var keywords = material.shaderKeywords.Where(k => k != "_EMISSION").ToList();
-                    if ((bool)v) keywords.Add("_EMISSION");
-                    // Assign the serialized keyword set so Save/Undo retain the requested state.
-                    material.shaderKeywords = keywords.ToArray();
-                });
+                bool knownEmission = material.shader.name == "Standard" ||
+                    material.shader.name == "Standard (Specular setup)" ||
+                    material.shader.name.StartsWith("Universal Render Pipeline/Lit", StringComparison.Ordinal) ||
+                    material.shader.name.StartsWith("Universal Render Pipeline/Simple Lit", StringComparison.Ordinal);
+
+                if (knownEmission && material.HasProperty("_EmissionColor") &&
+                    material.shader.keywordSpace.FindKeyword("_EMISSION").isValid)
+                {
+                    p.Add("Emission Color", null, false,
+                        o => ((Material)o).GetColor("_EmissionColor"),
+                        (o, v) => ((Material)o).SetColor("_EmissionColor", (Color)v));
+
+                    p.Add("Emission GI Flags", null, false,
+                        o => ((Material)o).globalIlluminationFlags,
+                        (o, v) => ((Material)o).globalIlluminationFlags = (MaterialGlobalIlluminationFlags)v);
+
+                    p.Add("Emission", null, false,
+                        o => ((Material)o).IsKeywordEnabled("_EMISSION"),
+                        (o, v) =>
+                        {
+                            var m = (Material)o;
+                            if ((bool)v) m.EnableKeyword("_EMISSION");
+                            else m.DisableKeyword("_EMISSION");
+                        });
+                }
             }
         }
 
@@ -401,13 +653,28 @@ namespace MobilePerformanceOptimizer
         internal static void Persist(Object target)
         {
             EditorUtility.SetDirty(target);
-            if (target is AssetImporter importer) importer.SaveAndReimport();
+            if (target is AssetImporter importer)
+            {
+                importer.SaveAndReimport();
+            }
             else if (target is Component component)
             {
                 PrefabUtility.RecordPrefabInstancePropertyModifications(component);
                 UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(component.gameObject.scene);
             }
-            else AssetDatabase.SaveAssets();
+            else
+            {
+                // Material/URP/Quality assets must be serialized to disk before verification.
+                AssetDatabase.SaveAssetIfDirty(target);
+                AssetDatabase.SaveAssets();
+
+                if (target is Material)
+                {
+                    string path = AssetDatabase.GetAssetPath(target);
+                    if (!string.IsNullOrWhiteSpace(path))
+                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                }
+            }
         }
 
         internal static bool RestoreSettings(MPOFixSnapshotData snapshot)

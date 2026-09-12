@@ -108,7 +108,7 @@ namespace MobilePerformanceOptimizer
             if (!string.IsNullOrWhiteSpace(_issue.AssetPath))
                 card.Add(MPOUI.Text(_issue.AssetPath, "mpo-detail-path"));
             else if (_issue.ContextObject != null)
-                card.Add(MPOUI.Text(_issue.ContextObject.name + (_issue.ContextObject is Component component ? " — " + component.gameObject.scene.path : ""), "mpo-detail-path"));
+                card.Add(MPOUI.Text(_issue.ContextObject.name + (_issue.ContextObject is Component component ? " â€” " + component.gameObject.scene.path : ""), "mpo-detail-path"));
 
             var impacts = new VisualElement();
             impacts.AddToClassList("mpo-action-row");

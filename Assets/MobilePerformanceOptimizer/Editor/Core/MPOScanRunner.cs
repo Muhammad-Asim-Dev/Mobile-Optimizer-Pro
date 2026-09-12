@@ -68,7 +68,7 @@ namespace MobilePerformanceOptimizer
             _profile = profile;
             _scope = scope ?? MPOScanScope.FullProject();
             ActiveAnalyzers.Clear();
-            ActiveAnalyzers.AddRange(AllAnalyzers.Where(analyzer => analyzer != null && _scope.ShouldRunCategory(analyzer.Category)));
+            ActiveAnalyzers.AddRange(AllAnalyzers.Where(analyzer => analyzer != null && _scope.ShouldRunCategory(analyzer.Category) && MPOConstants.IsCoreReleaseCategory(analyzer.Category)));
 
             _result = new MPOScanResult { TotalAnalyzerCount = ActiveAnalyzers.Count };
             _analyzerIndex = 0;
@@ -121,7 +121,7 @@ namespace MobilePerformanceOptimizer
                 return new MPOScanResult { CompletedAtUtc = DateTime.UtcNow };
 
             scope = scope ?? MPOScanScope.FullProject();
-            List<IMPOAnalyzer> analyzers = AllAnalyzers.Where(analyzer => scope.ShouldRunCategory(analyzer.Category)).ToList();
+            List<IMPOAnalyzer> analyzers = AllAnalyzers.Where(analyzer => scope.ShouldRunCategory(analyzer.Category) && MPOConstants.IsCoreReleaseCategory(analyzer.Category)).ToList();
             var result = new MPOScanResult { TotalAnalyzerCount = analyzers.Count };
             for (int i = 0; i < analyzers.Count; i++)
             {

@@ -14,6 +14,7 @@ namespace MobilePerformanceOptimizer
             public MPOIssue Issue;
             public MPOFixPlan Plan;
             public bool Selected = true;
+            public bool IndividuallyConfigured;
         }
 
         private readonly List<BatchFixItem> _items = new List<BatchFixItem>();
@@ -30,8 +31,20 @@ namespace MobilePerformanceOptimizer
         private bool _isApplying;
         private ProgressBar _applyProgress;
         private Label _applyStatus;
+        private string _titleOverride;
+        private MPOBulkFixPreset _bulkPreset;
 
         public static void ShowFor(IEnumerable<MPOIssue> issues, Action onApplied)
+        {
+            ShowFor(issues, onApplied, null);
+        }
+
+        public static void ShowFor(IEnumerable<MPOIssue> issues, Action onApplied, string titleOverride)
+        {
+            ShowFor(issues, onApplied, titleOverride, null);
+        }
+
+        public static void ShowFor(IEnumerable<MPOIssue> issues, Action onApplied, string titleOverride, MPOBulkFixPreset bulkPreset)
         {
             if (issues == null)
                 return;
@@ -51,14 +64,20 @@ namespace MobilePerformanceOptimizer
 
             MPOBatchFixWindow window = CreateInstance<MPOBatchFixWindow>();
             window._onApplied = onApplied;
+            window._titleOverride = titleOverride;
+            window._bulkPreset = bulkPreset;
             foreach (MPOIssue issue in unique.Values.OrderBy(item => item.FixSafety).ThenByDescending(item => item.Severity).ThenBy(item => item.Title))
             {
-                window._items.Add(new BatchFixItem { Issue = issue, Plan = issue.FixKind == MPOFixKind.DisableDevelopmentBuildFlags ? null : MPOFixPlans.Create(issue), Selected = true });
+                // Plans are created lazily for visible rows and immediately before Apply. Opening a
+                // category with thousands of assets therefore stays fast and does not load every importer.
+                window._items.Add(new BatchFixItem { Issue = issue, Plan = null, Selected = true });
                 if (issue.FixSafety == MPOFixSafety.ReviewRequired)
                     window._containsReviewFixes = true;
             }
 
-            window.titleContent = new GUIContent(window._containsReviewFixes ? "Review Recommended Fixes" : "Safe Fixes");
+            window.titleContent = new GUIContent(!string.IsNullOrWhiteSpace(window._titleOverride)
+                ? window._titleOverride
+                : window._containsReviewFixes ? "Review Recommended Fixes" : "Safe Fixes");
             window.minSize = new Vector2(720f, 500f);
             window.maxSize = new Vector2(1100f, 850f);
             window.ShowUtility();
@@ -74,17 +93,29 @@ namespace MobilePerformanceOptimizer
             head.AddToClassList("mpo-page");
             head.style.flexGrow = 0f;
             head.style.paddingBottom = 8f;
-            head.Add(MPOUI.Text(_containsReviewFixes ? "Review Recommended Fixes" : "Safe Fixes", "mpo-page-title"));
-            head.Add(MPOUI.Text(_containsReviewFixes
-                ? "Review each proposed change, uncheck anything you do not want, then apply the selected fixes. Original values are saved for Revert."
-                : "These changes are classified safe and revertible. Uncheck anything you want to leave unchanged.", "mpo-page-subtitle"));
+            string pageTitle = !string.IsNullOrWhiteSpace(_titleOverride)
+                ? _titleOverride
+                : _containsReviewFixes ? "Review Recommended Fixes" : "Safe Fixes";
+            head.Add(MPOUI.Text(pageTitle, "mpo-page-title"));
+            head.Add(MPOUI.Text(
+                "Only this category is included. Review the proposed settings, uncheck anything you do not want, then apply. Original values are saved for Revert.",
+                "mpo-page-subtitle"));
+
+            if (_bulkPreset != null && _bulkPreset.HasEditableSettings)
+            {
+                var presetCard = MPOUI.Card("mpo-bulk-settings-card");
+                presetCard.style.marginTop = 12f;
+                presetCard.Add(MPOUI.Text("CATEGORY VALUES", "mpo-stat-kicker"));
+                presetCard.Add(MPOUI.Text("Set a value once for every compatible selected fix.", "mpo-stat-copy"));
+                presetCard.Add(MPOFixPlanUI.BuildBulk(_bulkPreset, ApplyPresetToAllPlans));
+                head.Add(presetCard);
+            }
 
             var toolbar = new VisualElement();
             toolbar.AddToClassList("mpo-toolbar");
             toolbar.style.marginTop = 14f;
             toolbar.Add(MPOUI.ActionButton("Select All", () => SetAll(true)));
             toolbar.Add(MPOUI.ActionButton("Select None", () => SetAll(false)));
-            toolbar.Add(MPOUI.ActionButton("Copy First Selected Settings", CopyFirstSelectedSettings));
             var spacer = new VisualElement();
             spacer.AddToClassList("mpo-flex");
             toolbar.Add(spacer);
@@ -169,8 +200,17 @@ namespace MobilePerformanceOptimizer
             main.Add(preview);
             row.Add(main);
             row.Add(MPOUI.ActionButton("Configure / Preview", () => {
-                if (row.userData is BatchFixItem item && item.Plan != null)
-                    MPOFixPreviewWindow.ReviewPlan(item.Plan, () => _list.RefreshItems());
+                if (!(row.userData is BatchFixItem item) || item.Issue == null || item.Issue.FixKind == MPOFixKind.DisableDevelopmentBuildFlags)
+                    return;
+
+                if (item.Plan == null)
+                    item.Plan = MPOFixPlans.Create(item.Issue);
+                _bulkPreset?.ApplyTo(item.Plan);
+                MPOFixPreviewWindow.ReviewPlan(item.Plan, () =>
+                {
+                    item.IndividuallyConfigured = true;
+                    _list.RefreshItems();
+                });
             }));
             return row;
         }
@@ -182,13 +222,28 @@ namespace MobilePerformanceOptimizer
 
             BatchFixItem item = _items[index];
             MPOIssue issue = item.Issue;
+            if (issue.FixKind != MPOFixKind.DisableDevelopmentBuildFlags && item.Plan == null)
+                item.Plan = MPOFixPlans.Create(issue);
+            if (_bulkPreset != null && item.Plan != null && !item.IndividuallyConfigured)
+                _bulkPreset.ApplyTo(item.Plan);
             element.userData = item;
             element.Q<Toggle>("toggle").SetValueWithoutNotify(item.Selected);
-            element.Q<Label>("title").text = issue.Title + " � " + (string.IsNullOrEmpty(issue.AssetPath) ? issue.ContextObject != null ? issue.ContextObject.name : "Project" : issue.AssetPath);
+            element.Q<Label>("title").text = issue.Title + " — " + (string.IsNullOrEmpty(issue.AssetPath) ? issue.ContextObject != null ? issue.ContextObject.name : "Project" : issue.AssetPath);
             element.Q<Label>("meta").text = (issue.FixSafety == MPOFixSafety.Safe ? "SAFE" : "REVIEW") + "  •  " + issue.Category + "  •  " + issue.Severity;
             string preview = item.Plan != null ? item.Plan.Preview : string.IsNullOrWhiteSpace(issue.FixPreview) ? issue.Recommendation : issue.FixPreview;
             element.tooltip = issue.AssetPath + "\n" + preview;
             element.Q<Label>("preview").text = string.IsNullOrWhiteSpace(preview) ? "No preview text" : preview.Replace("\n", " ");
+        }
+
+        private void ApplyPresetToAllPlans()
+        {
+            if (_isApplying)
+                return;
+
+            // Do not rebuild hundreds/thousands of plans while the user changes a dropdown.
+            // Visible rows refresh immediately; every selected plan is rebuilt lazily, one per
+            // Editor update, immediately before Apply.
+            _list?.RefreshItems();
         }
 
         private void CopyFirstSelectedSettings()
@@ -242,10 +297,9 @@ namespace MobilePerformanceOptimizer
             if (selected.Count == 0)
                 return;
 
-            int intendedSettings = selected.Where(i => i.Plan != null).Sum(i => i.Plan.Settings.Count(c => c.Enabled && !Equals(c.Current, c.Selected)));
             if (!EditorUtility.DisplayDialog(
                     _containsReviewFixes ? "Apply Selected Fixes" : "Apply Selected Safe Fixes",
-                    "Apply " + selected.Count + " selected fix action(s), with " + intendedSettings + " asset setting change(s) in the previews?\n\nChanges are processed one at a time so the Editor remains responsive between asset reimports. Original values are available through Revert Last Fix Session.",
+                    "Apply " + selected.Count + " selected fix action(s) using the current category values?\n\nChanges are validated and processed one at a time so the Editor remains responsive between asset reimports. Original values are available through Revert Last Fix Session.",
                     "Apply",
                     "Cancel"))
                 return;
@@ -310,12 +364,18 @@ namespace MobilePerformanceOptimizer
 
             try
             {
+                if (_bulkPreset != null && issue.FixKind != MPOFixKind.DisableDevelopmentBuildFlags && !item.IndividuallyConfigured)
+                {
+                    item.Plan = MPOFixPlans.Create(issue);
+                    _bulkPreset.ApplyTo(item.Plan);
+                }
+
                 string message;
                 var status = item.Plan == null ? (MPOFixEngine.Apply(issue, out message) ? MPOApplyStatus.Applied : MPOApplyStatus.Failed) : MPOFixPlans.Apply(item.Plan, out message);
                 if (status == MPOApplyStatus.Applied) _appliedCount++;
                 else {
                     if (status == MPOApplyStatus.Skipped) _skippedCount++;
-                    _applyFailures.Add(status + " � " + issue.AssetPath + ": " + message);
+                    _applyFailures.Add(status + " — " + issue.AssetPath + ": " + message);
                 }
             }
             catch (Exception exception)
