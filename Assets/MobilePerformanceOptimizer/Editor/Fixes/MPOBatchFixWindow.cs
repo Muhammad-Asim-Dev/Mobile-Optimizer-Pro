@@ -12,6 +12,7 @@ namespace MobilePerformanceOptimizer
         private sealed class BatchFixItem
         {
             public MPOIssue Issue;
+            public MPOFixPlan Plan;
             public bool Selected = true;
         }
 
@@ -25,6 +26,7 @@ namespace MobilePerformanceOptimizer
         private readonly List<string> _applyFailures = new List<string>();
         private int _applyIndex;
         private int _appliedCount;
+        private int _skippedCount;
         private bool _isApplying;
         private ProgressBar _applyProgress;
         private Label _applyStatus;
@@ -51,7 +53,7 @@ namespace MobilePerformanceOptimizer
             window._onApplied = onApplied;
             foreach (MPOIssue issue in unique.Values.OrderBy(item => item.FixSafety).ThenByDescending(item => item.Severity).ThenBy(item => item.Title))
             {
-                window._items.Add(new BatchFixItem { Issue = issue, Selected = true });
+                window._items.Add(new BatchFixItem { Issue = issue, Plan = issue.FixKind == MPOFixKind.DisableDevelopmentBuildFlags ? null : MPOFixPlans.Create(issue), Selected = true });
                 if (issue.FixSafety == MPOFixSafety.ReviewRequired)
                     window._containsReviewFixes = true;
             }
@@ -82,6 +84,7 @@ namespace MobilePerformanceOptimizer
             toolbar.style.marginTop = 14f;
             toolbar.Add(MPOUI.ActionButton("Select All", () => SetAll(true)));
             toolbar.Add(MPOUI.ActionButton("Select None", () => SetAll(false)));
+            toolbar.Add(MPOUI.ActionButton("Copy First Selected Settings", CopyFirstSelectedSettings));
             var spacer = new VisualElement();
             spacer.AddToClassList("mpo-flex");
             toolbar.Add(spacer);
@@ -165,6 +168,10 @@ namespace MobilePerformanceOptimizer
             preview.name = "preview";
             main.Add(preview);
             row.Add(main);
+            row.Add(MPOUI.ActionButton("Configure / Preview", () => {
+                if (row.userData is BatchFixItem item && item.Plan != null)
+                    MPOFixPreviewWindow.ReviewPlan(item.Plan, () => _list.RefreshItems());
+            }));
             return row;
         }
 
@@ -177,10 +184,35 @@ namespace MobilePerformanceOptimizer
             MPOIssue issue = item.Issue;
             element.userData = item;
             element.Q<Toggle>("toggle").SetValueWithoutNotify(item.Selected);
-            element.Q<Label>("title").text = issue.Title;
+            element.Q<Label>("title").text = issue.Title + " — " + (string.IsNullOrEmpty(issue.AssetPath) ? issue.ContextObject != null ? issue.ContextObject.name : "Project" : issue.AssetPath);
             element.Q<Label>("meta").text = (issue.FixSafety == MPOFixSafety.Safe ? "SAFE" : "REVIEW") + "  â€¢  " + issue.Category + "  â€¢  " + issue.Severity;
-            string preview = string.IsNullOrWhiteSpace(issue.FixPreview) ? issue.Recommendation : issue.FixPreview;
+            string preview = item.Plan != null ? item.Plan.Preview : string.IsNullOrWhiteSpace(issue.FixPreview) ? issue.Recommendation : issue.FixPreview;
+            element.tooltip = issue.AssetPath + "\n" + preview;
             element.Q<Label>("preview").text = string.IsNullOrWhiteSpace(preview) ? "No preview text" : preview.Replace("\n", " ");
+        }
+
+        private void CopyFirstSelectedSettings()
+        {
+            if (_isApplying) return;
+            var source = _items.FirstOrDefault(i => i.Selected && i.Plan != null);
+            if (source == null) return;
+            int copied = 0;
+            foreach (var item in _items.Where(i => i.Selected && i != source && i.Plan != null && i.Issue.Category == source.Issue.Category))
+            {
+                item.Plan = MPOFixPlans.Create(item.Issue);
+                item.Plan.SetCustom(true);
+                if (source.Plan.Settings.Any(s => s.Enabled && !item.Plan.Settings.Any(t => t.Key == s.Key)))
+                    item.Plan.Error = "Bulk settings include a property unsupported by this asset. Reconfigure this action before Apply.";
+                foreach (var setting in item.Plan.Settings)
+                {
+                    var original = source.Plan.Settings.FirstOrDefault(s => s.Key == setting.Key);
+                    setting.Enabled = original != null && original.Enabled;
+                    if (setting.Enabled) setting.Selected = original.Selected;
+                }
+                copied++;
+            }
+            _list.RefreshItems();
+            EditorUtility.DisplayDialog("Bulk Settings", "Copied to " + copied + " compatible-category action(s). Review each preview. Values are validated against each asset before Apply; incompatible actions are skipped.", "OK");
         }
 
         private int SelectedCount => _items.Count(item => item.Selected);
@@ -210,9 +242,10 @@ namespace MobilePerformanceOptimizer
             if (selected.Count == 0)
                 return;
 
+            int intendedSettings = selected.Where(i => i.Plan != null).Sum(i => i.Plan.Settings.Count(c => c.Enabled && !Equals(c.Current, c.Selected)));
             if (!EditorUtility.DisplayDialog(
                     _containsReviewFixes ? "Apply Selected Fixes" : "Apply Selected Safe Fixes",
-                    "Apply " + selected.Count + " selected fix action(s)?\n\nChanges are processed one at a time so the Editor remains responsive between asset reimports. Original values are available through Revert Last Fix Session.",
+                    "Apply " + selected.Count + " selected fix action(s), with " + intendedSettings + " asset setting change(s) in the previews?\n\nChanges are processed one at a time so the Editor remains responsive between asset reimports. Original values are available through Revert Last Fix Session.",
                     "Apply",
                     "Cancel"))
                 return;
@@ -222,8 +255,10 @@ namespace MobilePerformanceOptimizer
             _applyFailures.Clear();
             _applyIndex = 0;
             _appliedCount = 0;
+            _skippedCount = 0;
             _isApplying = true;
 
+            rootVisualElement.SetEnabled(false);
             if (_list != null) _list.SetEnabled(false);
             if (_applyButton != null) _applyButton.SetEnabled(false);
             if (_applyProgress != null)
@@ -275,10 +310,13 @@ namespace MobilePerformanceOptimizer
 
             try
             {
-                if (MPOFixEngine.Apply(issue, out string message))
-                    _appliedCount++;
-                else
-                    _applyFailures.Add(issue.Title + ": " + message);
+                string message;
+                var status = item.Plan == null ? (MPOFixEngine.Apply(issue, out message) ? MPOApplyStatus.Applied : MPOApplyStatus.Failed) : MPOFixPlans.Apply(item.Plan, out message);
+                if (status == MPOApplyStatus.Applied) _appliedCount++;
+                else {
+                    if (status == MPOApplyStatus.Skipped) _skippedCount++;
+                    _applyFailures.Add(status + " — " + issue.AssetPath + ": " + message);
+                }
             }
             catch (Exception exception)
             {
@@ -303,19 +341,26 @@ namespace MobilePerformanceOptimizer
             if (_applyStatus != null)
                 _applyStatus.text = "Applied " + _appliedCount + " of " + _applyQueue.Count + " action(s).";
 
-            string summary = "Applied " + _appliedCount + " fix action(s).";
+            foreach (string failure in _applyFailures) Debug.LogWarning("[MPO] " + failure);
+            string summary = "Applied: " + _appliedCount + " | Skipped: " + _skippedCount + " | Failed: " + (_applyFailures.Count - _skippedCount);
             if (_applyFailures.Count > 0)
                 summary += "\n\nCould not apply " + _applyFailures.Count + " action(s):\n" + string.Join("\n", _applyFailures.Take(12).ToArray());
-            summary += "\n\nRe-scan the project to refresh results. You can revert the session from the Fixes page.";
+            summary += "\n\nThe original scan scope will be refreshed. You can revert the session from the Fixes page.";
 
             EditorUtility.DisplayDialog("Mobile Performance Optimizer", summary, "OK");
-            if (_appliedCount > 0)
-                _onApplied?.Invoke();
+            _onApplied?.Invoke();
             Close();
         }
 
         private void OnDisable()
         {
+            if (_isApplying)
+            {
+                _isApplying = false;
+                AssetDatabase.SaveAssets();
+                Debug.LogWarning("[MPO] Batch stopped: " + _appliedCount + " applied, " + _skippedCount + " skipped, " + (_applyQueue.Count - _applyIndex) + " unprocessed. Revert Last Fix Session is available.");
+                _onApplied?.Invoke();
+            }
             EditorApplication.update -= ApplyNextQueuedFix;
         }
     }

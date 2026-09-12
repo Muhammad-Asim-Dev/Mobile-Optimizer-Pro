@@ -1,0 +1,7 @@
+{
+  "name": "MPO.InternalTests.Editor",
+  "references": ["MobilePerformanceOptimizer.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

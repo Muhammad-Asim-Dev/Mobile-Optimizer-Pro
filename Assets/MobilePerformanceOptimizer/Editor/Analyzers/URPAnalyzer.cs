@@ -197,7 +197,7 @@ namespace MobilePerformanceOptimizer
                 if (failed >= 4 && context.Profile.DeviceTier == MPODeviceTier.LowEnd)
                     severity = MaxSeverity(severity, MPOSeverity.Critical);
 
-                result.AddIssue(new MPOIssue(
+                var issue = new MPOIssue(
                     Category,
                     severity,
                     "URP settings need mobile review",
@@ -207,10 +207,25 @@ namespace MobilePerformanceOptimizer
                     pipelineAsset,
                     SafeAssetPath(pipelineAsset),
                     "urp.settings-review",
+                    fixKind: MPOFixKind.ReviewSettings,
+                    fixSafety: MPOFixSafety.ReviewRequired,
                     cpuImpact: gpuConcernWeight >= 6 ? MPOImpactLevel.Medium : MPOImpactLevel.Low,
                     gpuImpact: gpuConcernWeight >= 6 ? MPOImpactLevel.High : gpuConcernWeight >= 2 ? MPOImpactLevel.Medium : MPOImpactLevel.Low,
                     memoryImpact: memoryConcernWeight >= 2 ? MPOImpactLevel.Medium : memoryConcernWeight == 1 ? MPOImpactLevel.Low : MPOImpactLevel.None,
-                    thermalImpact: gpuConcernWeight >= 5 ? MPOImpactLevel.High : MPOImpactLevel.Medium));
+                    thermalImpact: gpuConcernWeight >= 5 ? MPOImpactLevel.High : MPOImpactLevel.Medium);
+                AddRecommendation(issue, serialized, "m_RenderScale", context.Profile.MaxUrpRenderScale);
+                AddRecommendation(issue, serialized, "m_MSAA", context.Profile.MaxUrpMsaaSamples);
+                AddRecommendation(issue, serialized, "m_ShadowDistance", context.Profile.MaxShadowDistance);
+                AddRecommendation(issue, serialized, "m_ShadowCascadeCount", context.Profile.MaxShadowCascades);
+                if (context.Profile.RecommendHdrOff) AddRecommendation(issue, serialized, "m_SupportsHDR", false);
+                if (context.Profile.DeviceTier == MPODeviceTier.LowEnd)
+                {
+                    AddRecommendation(issue, serialized, "m_AdditionalLightShadowsSupported", false);
+                    AddRecommendation(issue, serialized, "m_SoftShadowsSupported", false);
+                }
+                AddRecommendation(issue, serialized, "m_RequireDepthTexture", false);
+                AddRecommendation(issue, serialized, "m_RequireOpaqueTexture", false);
+                result.AddIssue(issue);
             }
 
             if (checks == 0)
@@ -228,6 +243,14 @@ namespace MobilePerformanceOptimizer
             }
 
             context.ReportProgress("URP scan complete", 1f);
+        }
+
+        private static void AddRecommendation(MPOIssue issue, SerializedObject target, string name, object value)
+        {
+            var p = target.FindProperty(name);
+            if (p == null) return;
+            bool needed = value is bool b ? p.boolValue != b : value is int i ? p.intValue > i : p.floatValue > (float)value;
+            if (needed) issue.SettingRecommendations[name] = value;
         }
 
         private static void CheckFloat(

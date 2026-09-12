@@ -7,6 +7,15 @@ using UnityEngine;
 namespace MobilePerformanceOptimizer
 {
     [Serializable]
+    internal sealed class MPOSettingSnapshot
+    {
+        public string key;
+        public string before;
+        public string after;
+        public string type;
+    }
+
+    [Serializable]
     internal sealed class MPOFixSnapshotData
     {
         public string key;
@@ -23,6 +32,8 @@ namespace MobilePerformanceOptimizer
         public float float0;
         public bool bool4;
         public string string0;
+        public string string1;
+        public List<MPOSettingSnapshot> settings;
     }
 
     [Serializable]
@@ -136,6 +147,8 @@ namespace MobilePerformanceOptimizer
         {
             switch ((MPOFixKind)snapshot.kind)
             {
+                case MPOFixKind.ReviewSettings:
+                    return MPOFixPlans.RestoreSettings(snapshot);
                 case MPOFixKind.DisableDevelopmentBuildFlags:
                     EditorUserBuildSettings.development = snapshot.bool0;
                     EditorUserBuildSettings.allowDebugging = snapshot.bool1;
@@ -260,7 +273,7 @@ namespace MobilePerformanceOptimizer
             }
             catch (Exception exception)
             {
-                Debug.LogWarning("[MPO] Could not persist the fix session: " + exception.Message);
+                throw new IOException("Could not persist the fix session; no new changes should be applied.", exception);
             }
         }
     }

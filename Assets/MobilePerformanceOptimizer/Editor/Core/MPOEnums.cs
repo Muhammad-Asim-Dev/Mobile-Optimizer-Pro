@@ -59,6 +59,8 @@ namespace MobilePerformanceOptimizer
         DisableMeshReadWrite = 3,
         StreamLongAudio = 4,
         SetTexturePlatformMaxSize = 5,
-        EnableMaterialGpuInstancing = 6
+        EnableMaterialGpuInstancing = 6,
+        DisableTextureMipmaps = 7,
+        ReviewSettings = 8
     }
 }

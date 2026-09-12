@@ -55,9 +55,10 @@ namespace MobilePerformanceOptimizer
                     }
 
                     scanned++;
-                    int width = Mathf.Max(1, texture.width);
-                    int height = Mathf.Max(1, texture.height);
-                    int largestSide = Mathf.Max(width, height);
+                    // Texture2D dimensions belong to the active Editor target, not the scan target.
+                    importer.GetSourceTextureWidthAndHeight(out int sourceWidth, out int sourceHeight);
+                    int width = Mathf.Max(1, sourceWidth);
+                    int height = Mathf.Max(1, sourceHeight);
                     int recommendedSize = context.Profile.GetRecommendedTextureSize(path, importer);
                     bool uiLike = importer.textureType == TextureImporterType.Sprite || IsUiLike(path);
                     bool normalMap = importer.textureType == TextureImporterType.NormalMap;
@@ -65,6 +66,16 @@ namespace MobilePerformanceOptimizer
                     TextureImporterPlatformSettings platformSettings = importer.GetPlatformTextureSettings(context.Profile.PlatformTextureSettingsName);
                     bool hasPlatformOverride = platformSettings.overridden;
                     int platformMaxSize = hasPlatformOverride ? platformSettings.maxTextureSize : importer.maxTextureSize;
+
+                    if (importer.npotScale != TextureImporterNPOTScale.None)
+                    {
+                        width = ScaleNpot(width, importer.npotScale);
+                        height = ScaleNpot(height, importer.npotScale);
+                    }
+                    float scale = Mathf.Min(1f, platformMaxSize / (float)Mathf.Max(width, height));
+                    width = Mathf.Max(1, Mathf.RoundToInt(width * scale));
+                    height = Mathf.Max(1, Mathf.RoundToInt(height * scale));
+                    int largestSide = Mathf.Max(width, height);
 
                     bool isOversized = largestSide > recommendedSize;
                     bool isReadable = importer.isReadable;
@@ -95,7 +106,7 @@ namespace MobilePerformanceOptimizer
                             : MPOSeverity.Warning;
 
                         var details = new StringBuilder();
-                        details.AppendLine($"Imported size: {width} × {height}");
+                        details.AppendLine($"Target size estimate ({context.Profile.PlatformTextureSettingsName}): {width} × {height}");
                         details.AppendLine($"Recommended mobile max: {recommendedSize} px");
                         details.AppendLine($"Current {context.Profile.PlatformTextureSettingsName} max: {platformMaxSize} px");
                         details.AppendLine($"{context.Profile.PlatformTextureSettingsName} override: {MPOFormatUtility.Bool(hasPlatformOverride)}");
@@ -164,6 +175,9 @@ namespace MobilePerformanceOptimizer
                             null,
                             path,
                             "textures.ui-mipmaps",
+                            MPOFixKind.DisableTextureMipmaps,
+                            MPOFixSafety.ReviewRequired,
+                            "Mip Maps: On → Off. Review minification and world-space UI quality.",
                             gpuImpact: MPOImpactLevel.Low,
                             memoryImpact: MPOImpactLevel.Low,
                             buildSizeImpact: MPOImpactLevel.Low));
@@ -188,6 +202,13 @@ namespace MobilePerformanceOptimizer
             result.SetMetric("Skipped Textures", MPOFormatUtility.Number(skipped));
             result.SetMetric("Project Raw Upper-Bound", MPOFormatUtility.Megabytes(rawMemoryMb));
             context.ReportProgress("Texture scan complete", 1f);
+        }
+
+        private static int ScaleNpot(int size, TextureImporterNPOTScale mode)
+        {
+            if (mode == TextureImporterNPOTScale.ToLarger) return Mathf.NextPowerOfTwo(size);
+            if (mode == TextureImporterNPOTScale.ToSmaller) return Mathf.IsPowerOfTwo(size) ? size : Mathf.NextPowerOfTwo(size) / 2;
+            return Mathf.ClosestPowerOfTwo(size);
         }
 
         private static bool IsUiLike(string path)

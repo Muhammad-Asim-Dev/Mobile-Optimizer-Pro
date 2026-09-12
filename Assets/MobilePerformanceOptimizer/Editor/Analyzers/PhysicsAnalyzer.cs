@@ -135,16 +135,20 @@ namespace MobilePerformanceOptimizer
             if (fixedDelta + 0.00001f < context.Profile.MinRecommendedFixedDeltaTime)
             {
                 float frequency = fixedDelta > 0f ? 1f / fixedDelta : 0f;
-                result.AddIssue(new MPOIssue(
+                var issue = new MPOIssue(
                     Category,
                     MPOSeverity.Warning,
                     "Very frequent physics timestep",
                     $"Fixed Timestep is {fixedDelta:0.####} s (~{frequency:0.#} Hz). Selected mobile guidance is not faster than ~{1f / context.Profile.MinRecommendedFixedDeltaTime:0.#} Hz unless the game needs it.",
                     "A smaller timestep increases physics simulations per second. Validate gameplay requirements before increasing Fixed Timestep.",
                     4,
+                    assetPath: "ProjectSettings/TimeManager.asset",
                     ruleId: "physics.fixed-timestep",
+                    fixKind: MPOFixKind.ReviewSettings, fixSafety: MPOFixSafety.ReviewRequired,
                     cpuImpact: MPOImpactLevel.High,
-                    thermalImpact: MPOImpactLevel.High));
+                    thermalImpact: MPOImpactLevel.High);
+                issue.SettingRecommendations["Fixed Timestep"] = context.Profile.MinRecommendedFixedDeltaTime;
+                result.AddIssue(issue);
             }
             else result.AddPass();
 

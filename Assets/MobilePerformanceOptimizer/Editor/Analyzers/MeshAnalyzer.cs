@@ -77,7 +77,8 @@ namespace MobilePerformanceOptimizer
                             long triangles = MPOSceneUtility.GetTriangleCount(mesh, context, path + " triangle data");
                             bool usedInLoadedScene = loadedMeshes.Contains(mesh);
                             bool isHighPoly = triangles > context.Profile.MaxMeshTriangles;
-                            bool isReadable = mesh.isReadable;
+                            ModelImporter modelImporter = AssetImporter.GetAtPath(path) as ModelImporter;
+                            bool isReadable = modelImporter != null ? modelImporter.isReadable : mesh.isReadable;
                             bool shouldHaveLod = triangles > context.Profile.HighPolyMeshLodThreshold;
                             bool usedByLoadedLod = lodMeshesInLoadedScenes.Contains(mesh);
                             bool lodConcern = usedInLoadedScene && shouldHaveLod && !usedByLoadedLod;

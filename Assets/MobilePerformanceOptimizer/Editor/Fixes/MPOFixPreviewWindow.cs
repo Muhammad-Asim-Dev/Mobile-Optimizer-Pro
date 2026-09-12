@@ -8,6 +8,8 @@ namespace MobilePerformanceOptimizer
     public sealed class MPOFixPreviewWindow : EditorWindow
     {
         private MPOIssue _issue;
+        private MPOFixPlan _plan;
+        private bool _reviewOnly;
         private Action _onApplied;
 
         public static void ShowFor(MPOIssue issue, Action onApplied)
@@ -17,10 +19,31 @@ namespace MobilePerformanceOptimizer
 
             MPOFixPreviewWindow window = CreateInstance<MPOFixPreviewWindow>();
             window._issue = issue;
+            window._plan = issue.FixKind == MPOFixKind.DisableDevelopmentBuildFlags ? null : MPOFixPlans.Create(issue);
             window._onApplied = onApplied;
             window.titleContent = new GUIContent("Preview Fix");
             window.minSize = new Vector2(560f, 430f);
             window.maxSize = new Vector2(840f, 760f);
+            window.ShowUtility();
+        }
+
+        internal static void ReviewPlan(MPOFixPlan plan, Action onReviewed)
+        {
+            var window = CreateInstance<MPOFixPreviewWindow>();
+            window._issue = plan.Issue;
+            window._plan = plan.CopyForReview();
+            window._reviewOnly = true;
+            window._onApplied = () => {
+                plan.SetCustom(window._plan.Custom);
+                for (int i = 0; i < plan.Settings.Count; i++)
+                {
+                    plan.Settings[i].Selected = window._plan.Settings[i].Selected;
+                    plan.Settings[i].Enabled = window._plan.Settings[i].Enabled;
+                }
+                onReviewed?.Invoke();
+            };
+            window.titleContent = new GUIContent("Configure Selected Fix");
+            window.minSize = new Vector2(560, 430);
             window.ShowUtility();
         }
 
@@ -53,7 +76,7 @@ namespace MobilePerformanceOptimizer
             var spacer = new VisualElement();
             spacer.AddToClassList("mpo-flex");
             footer.Add(spacer);
-            var apply = MPOUI.ActionButton(_issue.FixSafety == MPOFixSafety.Safe ? "Apply Safe Fix" : "Apply Reviewed Fix", ApplyFix);
+            var apply = MPOUI.ActionButton(_reviewOnly ? "Use These Settings" : _issue.FixSafety == MPOFixSafety.Safe ? "Apply Safe Fix" : "Apply Reviewed Fix", ApplyFix);
             apply.AddToClassList("mpo-primary");
             footer.Add(apply);
             root.Add(footer);
@@ -84,6 +107,8 @@ namespace MobilePerformanceOptimizer
             card.Add(MPOUI.Text(_issue.Title, "mpo-detail-title"));
             if (!string.IsNullOrWhiteSpace(_issue.AssetPath))
                 card.Add(MPOUI.Text(_issue.AssetPath, "mpo-detail-path"));
+            else if (_issue.ContextObject != null)
+                card.Add(MPOUI.Text(_issue.ContextObject.name + (_issue.ContextObject is Component component ? " — " + component.gameObject.scene.path : ""), "mpo-detail-path"));
 
             var impacts = new VisualElement();
             impacts.AddToClassList("mpo-action-row");
@@ -94,7 +119,8 @@ namespace MobilePerformanceOptimizer
             MPOUI.AddImpactChip(impacts, "THERMAL", _issue.ThermalImpact);
             card.Add(impacts);
 
-            card.Add(BuildSection("WHAT WILL CHANGE", string.IsNullOrWhiteSpace(_issue.FixPreview) ? _issue.Recommendation : _issue.FixPreview));
+            card.Add(MPOFixPlanUI.Build(_plan));
+            card.Add(BuildSection(_plan == null ? "WHAT WILL CHANGE" : "RECOMMENDATION CONTEXT", string.IsNullOrWhiteSpace(_issue.FixPreview) ? _issue.Recommendation : _issue.FixPreview));
             card.Add(BuildSection("WHY THIS IS " + (_issue.FixSafety == MPOFixSafety.Safe ? "SAFE" : "REVIEW-REQUIRED"),
                 _issue.FixSafety == MPOFixSafety.Safe
                     ? "This changes an editor/import setting that is straightforward to restore. The original value is captured in the current optimization session before the change is applied."
@@ -117,7 +143,11 @@ namespace MobilePerformanceOptimizer
             if (_issue == null)
                 return;
 
-            if (MPOFixEngine.Apply(_issue, out string message))
+            if (_reviewOnly) { _onApplied?.Invoke(); Close(); return; }
+            string message;
+            bool applied = _plan == null ? MPOFixEngine.Apply(_issue, out message) :
+                MPOFixPlans.Apply(_plan, out message) == MPOApplyStatus.Applied;
+            if (applied)
             {
                 AssetDatabase.SaveAssets();
                 EditorUtility.DisplayDialog("Mobile Performance Optimizer", message, "OK");

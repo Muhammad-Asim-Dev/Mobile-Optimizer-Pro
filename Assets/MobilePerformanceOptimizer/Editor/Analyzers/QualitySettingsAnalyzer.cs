@@ -43,18 +43,25 @@ namespace MobilePerformanceOptimizer
                 if (lodConcern) recommendation.AppendLine("• High LOD Bias keeps detailed LODs visible farther away. Review it on low-end targets.");
 
                 int concernCount = (aaConcern ? 1 : 0) + (shadowConcern ? 1 : 0) + (lodConcern ? 1 : 0);
-                result.AddIssue(new MPOIssue(
+                var issue = new MPOIssue(
                     Category,
                     concernCount >= 2 && context.Profile.DeviceTier == MPODeviceTier.LowEnd ? MPOSeverity.Critical : MPOSeverity.Warning,
                     "Active quality level is expensive for selected target",
                     details.ToString(),
                     recommendation.ToString().TrimEnd(),
                     concernCount >= 2 ? 6 : 4,
+                    assetPath: "ProjectSettings/QualitySettings.asset",
+                    fixKind: MPOFixKind.ReviewSettings, fixSafety: MPOFixSafety.ReviewRequired,
                     ruleId: "quality.active-level",
                     cpuImpact: lodConcern ? MPOImpactLevel.Medium : MPOImpactLevel.Low,
                     gpuImpact: concernCount >= 2 ? MPOImpactLevel.High : MPOImpactLevel.Medium,
                     memoryImpact: lodConcern ? MPOImpactLevel.Medium : MPOImpactLevel.Low,
-                    thermalImpact: concernCount >= 2 ? MPOImpactLevel.High : MPOImpactLevel.Medium));
+                    thermalImpact: concernCount >= 2 ? MPOImpactLevel.High : MPOImpactLevel.Medium);
+                string prefix = "m_QualitySettings.Array.data[" + qualityLevel + "].";
+                if (aaConcern) issue.SettingRecommendations[prefix + "antiAliasing"] = context.Profile.MaxQualityMsaaSamples;
+                if (shadowConcern) issue.SettingRecommendations[prefix + "shadowDistance"] = context.Profile.MaxQualityShadowDistance;
+                if (lodConcern) issue.SettingRecommendations[prefix + "lodBias"] = context.Profile.MinLodBias;
+                result.AddIssue(issue);
             }
             else result.AddPass();
 

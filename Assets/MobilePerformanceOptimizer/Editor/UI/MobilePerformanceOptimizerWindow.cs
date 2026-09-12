@@ -135,6 +135,7 @@ namespace MobilePerformanceOptimizer
 
         private void OnEnable()
         {
+            MPOFixUndo.Changed += OnOptimizationUndo;
             _targetPlatform = MPOEditorPreferences.TargetPlatform;
             _deviceTier = MPOEditorPreferences.DeviceTier;
             _scanPlatform = _targetPlatform;
@@ -153,6 +154,7 @@ namespace MobilePerformanceOptimizer
 
         private void OnDisable()
         {
+            MPOFixUndo.Changed -= OnOptimizationUndo;
             if (MPOScanRunner.IsRunning)
                 MPOScanRunner.CancelAndDetachCallbacks();
         }
@@ -2263,57 +2265,22 @@ namespace MobilePerformanceOptimizer
 
         private void FixSafeIssues(IEnumerable<MPOIssue> source)
         {
-            if (source == null)
-                return;
+            if (source == null) return;
+            MPOBatchFixWindow.ShowFor(source.Where(i => i != null && i.CanFix && i.FixSafety == MPOFixSafety.Safe), RefreshAfterOptimization);
+        }
 
-            var unique = new Dictionary<string, MPOIssue>();
-            foreach (MPOIssue issue in source)
-            {
-                if (issue == null || !issue.CanFix || issue.FixSafety != MPOFixSafety.Safe)
-                    continue;
-                string key = MPOFixEngine.GetActionKey(issue);
-                if (!unique.ContainsKey(key))
-                    unique.Add(key, issue);
-            }
+        private void OnOptimizationUndo()
+        {
+            if (_scanResult != null) RefreshAfterOptimization();
+        }
 
-            if (unique.Count == 0)
-            {
-                EditorUtility.DisplayDialog("Mobile Performance Optimizer", "No safe automatic fixes are available in the current scan.", "OK");
-                return;
-            }
-
-            if (!EditorUtility.DisplayDialog(
-                    "Fix All Safe Issues",
-                    "Apply " + unique.Count + " safe and revertible fix action(s)?\n\nOnly items classified SAFE are included. Review-required and manual findings will not be changed.",
-                    "Fix All Safe",
-                    "Cancel"))
-                return;
-
-            int applied = 0;
-            var failures = new List<string>();
-            foreach (MPOIssue issue in unique.Values)
-            {
-                try
-                {
-                    if (MPOFixEngine.Apply(issue, out string message))
-                        applied++;
-                    else
-                        failures.Add(issue.Title + ": " + message);
-                }
-                catch (Exception exception)
-                {
-                    failures.Add(issue.Title + ": " + exception.Message);
-                }
-            }
-
-            _needsRescan = applied > 0 || _needsRescan;
-            string summary = "Applied " + applied + " safe fix action(s).";
-            if (failures.Count > 0)
-                summary += "\n\n" + failures.Count + " action(s) could not be applied. The rest were preserved.\n" + string.Join("\n", failures.Take(8));
-            if (applied > 0)
-                summary += "\n\nRe-scan to refresh the score and problem list. You can revert the session from the Fixes page.";
-            EditorUtility.DisplayDialog("Safe Fixes Complete", summary, "OK");
+        private void RefreshAfterOptimization()
+        {
+            _needsRescan = true;
+            InvalidateIssueCache();
             RefreshAllData();
+            if (_scanScope != null && !MPOScanRunner.IsRunning)
+                MPOScanRunner.Start(MPOProfile.Create(_scanPlatform, _scanTier), _scanScope, OnScanCompleted, UpdateScanUi);
         }
 
         private void OpenAutomaticFixes(IEnumerable<MPOIssue> source)
@@ -2332,8 +2299,7 @@ namespace MobilePerformanceOptimizer
 
             MPOBatchFixWindow.ShowFor(fixes, () =>
             {
-                _needsRescan = true;
-                RefreshAllData();
+                RefreshAfterOptimization();
             });
         }
 
@@ -2352,8 +2318,7 @@ namespace MobilePerformanceOptimizer
 
             MPOBatchFixWindow.ShowFor(review, () =>
             {
-                _needsRescan = true;
-                RefreshAllData();
+                RefreshAfterOptimization();
             });
         }
 
@@ -2361,8 +2326,7 @@ namespace MobilePerformanceOptimizer
         {
             MPOFixPreviewWindow.ShowFor(issue, () =>
             {
-                _needsRescan = true;
-                RefreshAllData();
+                RefreshAfterOptimization();
             });
         }
 
@@ -2427,8 +2391,7 @@ namespace MobilePerformanceOptimizer
 
             MPOFixSession.RevertLastSession(out string message);
             EditorUtility.DisplayDialog("Mobile Performance Optimizer", message, "OK");
-            _needsRescan = true;
-            RefreshAllData();
+            RefreshAfterOptimization();
         }
 
         private void ClearAllIgnored()

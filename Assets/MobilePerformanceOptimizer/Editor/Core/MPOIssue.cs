@@ -25,6 +25,8 @@ namespace MobilePerformanceOptimizer
         public MPOImpactLevel BuildSizeImpact { get; }
         public MPOImpactLevel ThermalImpact { get; }
 
+        public System.Collections.Generic.Dictionary<string, object> SettingRecommendations { get; } = new System.Collections.Generic.Dictionary<string, object>();
+
         public bool CanFix => FixKind != MPOFixKind.None;
 
         public MPOImpactLevel HighestImpact => MPOImpactUtility.Max(

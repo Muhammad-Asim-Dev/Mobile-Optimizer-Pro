@@ -124,7 +124,7 @@ namespace MobilePerformanceOptimizer
                         ? MPOImpactLevel.Medium
                         : MPOImpactLevel.Low;
 
-                    result.AddIssue(new MPOIssue(
+                    var issue = new MPOIssue(
                         Category,
                         severity,
                         "Particle system needs mobile review",
@@ -134,10 +134,15 @@ namespace MobilePerformanceOptimizer
                         ps,
                         null,
                         "particles.system-review",
+                        fixKind: heavyCapacity || highEstimatedRuntime ? MPOFixKind.ReviewSettings : MPOFixKind.None,
+                        fixSafety: MPOFixSafety.ReviewRequired,
                         cpuImpact: cpuImpact,
                         gpuImpact: gpuImpact,
                         memoryImpact: heavyCapacity ? MPOImpactLevel.Medium : MPOImpactLevel.Low,
-                        thermalImpact: (int)gpuImpact >= (int)MPOImpactLevel.Medium ? MPOImpactLevel.High : MPOImpactLevel.Medium));
+                        thermalImpact: (int)gpuImpact >= (int)MPOImpactLevel.Medium ? MPOImpactLevel.High : MPOImpactLevel.Medium);
+                    if (heavyCapacity || highEstimatedRuntime)
+                        issue.SettingRecommendations["Max Particles"] = highEstimatedRuntime ? context.Profile.MaxParticlesPerSystem / 2 : context.Profile.MaxParticlesPerSystem;
+                    result.AddIssue(issue);
                 });
 
                 if (!ok) skippedSystems++;

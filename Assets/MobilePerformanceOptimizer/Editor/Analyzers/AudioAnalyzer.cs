@@ -55,7 +55,9 @@ namespace MobilePerformanceOptimizer
 
                     scanned++;
                     totalDuration += clip.length;
-                    AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+                    string platform = context.Profile.PlatformTextureSettingsName;
+                    AudioImporterSampleSettings settings = importer.ContainsSampleSettingsOverride(platform)
+                        ? importer.GetOverrideSampleSettings(platform) : importer.defaultSampleSettings;
                     if (settings.loadType == AudioClipLoadType.DecompressOnLoad) decompressOnLoad++;
                     if (settings.loadType == AudioClipLoadType.Streaming) streaming++;
 
@@ -99,7 +101,7 @@ namespace MobilePerformanceOptimizer
                         recommendation.AppendLine("• PCM on a long clip is large. Use an appropriate compressed format unless PCM quality/latency is specifically required.");
 
                     bool canOfferStreamingFix = longAndDecompressed || veryLongNotStreaming;
-                    result.AddIssue(new MPOIssue(
+                    if (canOfferStreamingFix) result.AddIssue(new MPOIssue(
                         Category,
                         severity,
                         "Long audio clip needs memory review",
@@ -112,10 +114,15 @@ namespace MobilePerformanceOptimizer
                         canOfferStreamingFix ? MPOFixKind.StreamLongAudio : MPOFixKind.None,
                         canOfferStreamingFix ? MPOFixSafety.ReviewRequired : MPOFixSafety.Manual,
                         canOfferStreamingFix ? "Load Type: " + settings.loadType + " → Streaming\nPreload Audio Data: " + MPOFormatUtility.Bool(settings.preloadAudioData) + " → Off\n\nRecommended mainly for long music/ambience. Verify seek latency, looping, and platform playback after applying." : null,
+                        fixStringValue: platform,
                         cpuImpact: settings.loadType == AudioClipLoadType.DecompressOnLoad ? MPOImpactLevel.Low : MPOImpactLevel.Medium,
                         memoryImpact: estimatedPcmMb >= 32d ? MPOImpactLevel.High : MPOImpactLevel.Medium,
                         buildSizeImpact: pcmLong ? MPOImpactLevel.High : MPOImpactLevel.Medium,
                         thermalImpact: MPOImpactLevel.Low));
+                    if (pcmLong)
+                        result.AddIssue(new MPOIssue(Category, MPOSeverity.Warning, "Long audio clip uses PCM",
+                            "Compression: PCM (" + platform + ")", "Review a compressed format for long audio; validate quality and latency.",
+                            2, null, path, "audio.long-clip-pcm", buildSizeImpact: MPOImpactLevel.High));
                 });
 
                 if (!ok) skipped++;
