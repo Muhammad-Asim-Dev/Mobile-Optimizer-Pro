@@ -34,9 +34,14 @@ namespace MobilePerformanceOptimizer
             mode.index = preset.Custom ? 1 : 0;
             host.Add(mode);
 
+            // Category presets can expose several editable settings. Bound that dynamic area
+            // inside its own scroll view so it never pushes/overlaps the Problems results UI.
+            var bodyScroll = new ScrollView(ScrollViewMode.Vertical);
+            bodyScroll.AddToClassList("mpo-bulk-scroll");
             var body = new VisualElement();
             body.AddToClassList("mpo-bulk-body");
-            host.Add(body);
+            bodyScroll.Add(body);
+            host.Add(bodyScroll);
 
             Action rebuild = null;
             rebuild = () =>

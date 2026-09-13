@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Fixed Problems-page controls overlapping results when category-wide custom values are expanded
+- Added height-aware responsive layout for short/docked Unity Editor windows
+- Category batch values now use a bounded internal scroll region instead of growing without limit
+- Problems page now preserves normal document flow with a scrollable outer page and bounded virtualized result panes
+- No analyzer, fix, report, or scan behavior changed in this UI-only hotfix
+
 ## 1.0.0
 
 - Finalized focused Asset Store workflow

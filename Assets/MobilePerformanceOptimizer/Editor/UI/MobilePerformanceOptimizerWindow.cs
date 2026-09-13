@@ -165,8 +165,8 @@ namespace MobilePerformanceOptimizer
             VisualElement root = rootVisualElement;
             root.Clear();
             MPOUI.ApplyTheme(root);
-            root.RegisterCallback<GeometryChangedEvent>(evt => UpdateResponsiveLayout(root, evt.newRect.width));
-            UpdateResponsiveLayout(root, position.width);
+            root.RegisterCallback<GeometryChangedEvent>(evt => UpdateResponsiveLayout(root, evt.newRect.width, evt.newRect.height));
+            UpdateResponsiveLayout(root, position.width, position.height);
 
             root.Add(BuildTopBar());
             root.Add(BuildScanBanner());
@@ -181,7 +181,7 @@ namespace MobilePerformanceOptimizer
             root.Add(shell);
         }
 
-        private static void UpdateResponsiveLayout(VisualElement root, float width)
+        private static void UpdateResponsiveLayout(VisualElement root, float width, float height)
         {
             if (root == null)
                 return;
@@ -191,6 +191,11 @@ namespace MobilePerformanceOptimizer
 
             if (width < 960f) root.AddToClassList("mpo-narrow");
             else root.RemoveFromClassList("mpo-narrow");
+
+            // Height matters as much as width for docked Editor windows. The short-layout
+            // class prevents expanding category controls from competing with the results panes.
+            if (height < 820f) root.AddToClassList("mpo-short");
+            else root.RemoveFromClassList("mpo-short");
         }
 
         private VisualElement BuildTopBar()
@@ -938,8 +943,14 @@ namespace MobilePerformanceOptimizer
 
         private VisualElement BuildIssuesPage()
         {
-            var page = new VisualElement();
-            page.AddToClassList("mpo-page");
+            // Problems has dynamic category controls. Keep the whole page in document flow so
+            // custom batch settings can never overlap the search/results region in short or
+            // docked Editor layouts. The virtualized result panes keep their own bounded height.
+            var page = new ScrollView(ScrollViewMode.Vertical);
+            page.AddToClassList("mpo-scroll-page");
+            page.AddToClassList("mpo-problems-page");
+            page.contentContainer.AddToClassList("mpo-scroll-content");
+            page.contentContainer.AddToClassList("mpo-problems-content");
             page.Add(BuildPageHeader("Problems", "Choose a category, inspect the affected assets, and fix only the settings you actually want to change."));
             AddStatusBanners(page);
 
@@ -964,6 +975,7 @@ namespace MobilePerformanceOptimizer
 
             var split = new VisualElement();
             split.AddToClassList("mpo-split");
+            split.AddToClassList("mpo-problems-split");
 
             var listPane = new VisualElement();
             listPane.AddToClassList("mpo-list-pane");

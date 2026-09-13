@@ -672,6 +672,30 @@
 .mpo-bulk-setting-recommended { font-size: 9px; color: #8197ae; margin-left: 19px; margin-top: 2px; }
 .mpo-bulk-setting-control { width: 260px; min-width: 220px; }
 
+
+/* Problems page layout safety. Dynamic category values stay in normal document flow and
+   results use a bounded virtualized viewport, so controls never paint over each other. */
+.mpo-problems-page { flex-grow: 1; }
+.mpo-problems-content { min-width: 0; }
+.mpo-problems-split {
+    flex-grow: 0;
+    height: 470px;
+    min-height: 360px;
+    margin-bottom: 8px;
+}
+.mpo-bulk-scroll {
+    max-height: 220px;
+    min-height: 0;
+    flex-shrink: 1;
+    margin-top: 4px;
+}
+.mpo-bulk-scroll > .unity-scroll-view__content-viewport { min-height: 0; }
+.mpo-bulk-scroll > .unity-scroll-view__content-viewport > .unity-scroll-view__content-container { flex-shrink: 0; }
+.mpo-short .mpo-bulk-scroll { max-height: 170px; }
+.mpo-short .mpo-problems-split { height: 390px; min-height: 320px; }
+.mpo-narrow .mpo-problems-split { height: 650px; min-height: 580px; }
+.mpo-narrow.mpo-short .mpo-problems-split { height: 600px; min-height: 540px; }
+
 /* Responsive anchoring/layout */
 .mpo-compact .mpo-sidebar { width: 160px; min-width: 160px; }
 .mpo-compact .mpo-brand-row { min-width: 290px; }
