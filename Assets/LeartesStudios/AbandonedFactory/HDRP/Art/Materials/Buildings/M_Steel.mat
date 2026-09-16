@@ -8,13 +8,11 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: M_Steel
-  m_Shader: {fileID: -6465566751694194690, guid: 262bb03d801940b438a5757a469b2600, type: 3}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
+  m_Shader: {fileID: -6465566751694194690, guid: 262bb03d801940b438a5757a469b2600,
+    type: 3}
   m_ValidKeywords:
-  - _ALPHATEST_ON
-  m_InvalidKeywords:
   - _DISABLE_SSR_TRANSPARENT
+  m_InvalidKeywords:
   - _NORMALMAP_TANGENT_SPACE
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -22,14 +20,12 @@ Material:
   m_CustomRenderQueue: 2225
   stringTagMap:
     MotionVector: User
-    RenderType: TransparentCutout
   disabledShaderPasses:
   - TransparentDepthPrepass
   - TransparentDepthPostpass
   - TransparentBackface
   - RayTracingPrepass
   - MOTIONVECTORS
-  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -89,19 +85,14 @@ Material:
     m_Floats:
     - _A: 0
     - _AddPrecomputedVelocity: 0
-    - _AlphaClip: 1
     - _AlphaCutoffEnable: 0
     - _AlphaDstBlend: 0
     - _AlphaSrcBlend: 1
-    - _AlphaToMask: 1
+    - _AlphaToMask: 0
     - _AlphaToMaskInspectorValue: 0
     - _B: 1
-    - _Blend: 0
     - _BlendMode: 0
-    - _BlendModePreserveSpecular: 0
-    - _CastShadows: 1
     - _ConservativeDepthOffsetEnable: 0
-    - _Cull: 2
     - _CullMode: 2
     - _CullModeForward: 2
     - _DepthOffsetEnable: 0
@@ -110,7 +101,6 @@ Material:
     - _DoubleSidedGIMode: 0
     - _DoubleSidedNormalMode: 2
     - _DstBlend: 0
-    - _DstBlendAlpha: 0
     - _EnableBlendModePreserveSpecularLighting: 1
     - _EnableFogOnTransparent: 1
     - _Enable_Grunge: 0
@@ -121,10 +111,7 @@ Material:
     - _NormalMapStrength: 1
     - _NormalStrength: 0.9
     - _OpaqueCullMode: 2
-    - _QueueControl: 1
-    - _QueueOffset: 0
     - _RayTracing: 0
-    - _ReceiveShadows: 1
     - _ReceivesSSR: 1
     - _ReceivesSSRTransparent: 0
     - _RefractionModel: 0
@@ -135,7 +122,6 @@ Material:
     - _Second_Normal_Map_Dirt_Strength: 1
     - _Second_Normal_Map_UV_Scale: 1
     - _SrcBlend: 1
-    - _SrcBlendAlpha: 1
     - _StencilRef: 0
     - _StencilRefDepth: 8
     - _StencilRefDistortionVec: 4
@@ -147,7 +133,6 @@ Material:
     - _StencilWriteMaskGBuffer: 14
     - _StencilWriteMaskMV: 40
     - _SupportDecals: 1
-    - _Surface: 0
     - _SurfaceType: 0
     - _TransparentBackfaceEnable: 0
     - _TransparentCullMode: 2
@@ -167,13 +152,10 @@ Material:
     - _Use_Local_Space_For_Bottom_Dirt: 0
     - _Use_Second_Normal_Map: 0
     - _Use_Texture_Inputs: 1
-    - _WorkflowMode: 1
-    - _ZTest: 4
     - _ZTestDepthEqualForOpaque: 3
     - _ZTestGBuffer: 4
     - _ZTestTransparent: 4
     - _ZWrite: 1
-    - _ZWriteControl: 0
     m_Colors:
     - _AO_Dirt_Color: {r: 0.09305898, g: 0.07036011, b: 0.056128494, a: 1}
     - _AO_Dirt_Controls: {r: 1, g: 1, b: 1, a: 1}
@@ -197,20 +179,6 @@ Material:
     - _ORM: {r: 1, g: 0.3, b: 0, a: 0}
     - _UV_Offset: {r: 0, g: 0, b: 0, a: 0}
   m_BuildTextureStacks: []
-  m_AllowLocking: 1
---- !u!114 &5485460499790821328
-MonoBehaviour:
-  m_ObjectHideFlags: 11
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  version: 10
 --- !u!114 &7506307758294432259
 MonoBehaviour:
   m_ObjectHideFlags: 11
